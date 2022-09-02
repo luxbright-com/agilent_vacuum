@@ -1,7 +1,7 @@
 import logging
 import pytest
-from vacuum_interfaces.agilent import calc_checksum, validate_checksum, parse_response
-from vacuum_interfaces.agilent import Command, DataType, ResultCode
+from vacuum_interfaces.agilent import calc_checksum, validate_checksum
+from vacuum_interfaces.agilent import Command, DataType, ResultCode, AgilentDriver
 from vacuum_interfaces.agilent.exceptions import *
 
 logger = logging.getLogger("test")
@@ -26,22 +26,23 @@ def test_validate_checksum():
 
 
 def test_parse_response():
+    driver = AgilentDriver()
     # incomplete response
     with pytest.raises(EOFError):
         test_str = b"\x02\x80\x15"
-        response = parse_response(test_str)
+        response = driver.parse_response(test_str)
 
     # ACK
     test_str = b"\x02\x80\x06\x03\x38\x35"
     assert validate_checksum(test_str) is True
-    response = parse_response(test_str)
+    response = driver.parse_response(test_str)
     assert response.addr == 0
     assert response.result_code == ResultCode.ACK
 
     # pump status
     test_str = b"\x02\x83\x32\x30\x35\x30\x30\x30\x30\x30\x30\x30\x03\x38\x37"
     assert validate_checksum(test_str) is True
-    response = parse_response(test_str)
+    response = driver.parse_response(test_str)
     assert response.addr == 3
     assert response.data == b"000000"
     assert response.win == 205
@@ -50,7 +51,7 @@ def test_parse_response():
     # read serial type
     test_str = b"\x02\x83\x35\x30\x34\x30\x31\x03\x42\x30"
     assert validate_checksum(test_str) is True
-    response = parse_response(test_str)
+    response = driver.parse_response(test_str)
     assert response.addr == 3
     assert response.data == b"1"
     assert response.write is False
@@ -58,23 +59,23 @@ def test_parse_response():
     # skipped checksum in tests below
     with pytest.raises(NACK):
         test_str = b"\x02\x80\x15\x03"
-        response = parse_response(test_str)
+        response = driver.parse_response(test_str)
 
     with pytest.raises(UnknownWindow):
         test_str = b"\x02\x80\x32\x03"
-        response = parse_response(test_str)
+        response = driver.parse_response(test_str)
 
     with pytest.raises(DataTypeError):
         test_str = b"\x02\x80\x33\x03"
-        response = parse_response(test_str)
+        response = driver.parse_response(test_str)
 
     with pytest.raises(OutOfRange):
         test_str = b"\x02\x80\x34\x03"
-        response = parse_response(test_str)
+        response = driver.parse_response(test_str)
 
     with pytest.raises(WinDisabled):
         test_str = b"\x02\x80\x35\x03"
-        response = parse_response(test_str)
+        response = driver.parse_response(test_str)
 
 
 def test_command_encode():

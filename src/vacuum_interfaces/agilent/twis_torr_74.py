@@ -6,7 +6,7 @@ from enum import IntEnum, IntFlag
 import logging
 from typing import Optional, Union
 
-from .communication import DataType, Command, SerialClient, LanClient, Response, parse_response
+from .communication import DataType, Command, SerialClient, LanClient, Response, AgilentDriver
 from .commands import *
 
 logger = logging.getLogger('vacuum')
@@ -50,13 +50,13 @@ class PumpErrorCode(IntFlag):
     TOO_HIGH_LOAD = 0x80
 
 
-class TwisTorr74Driver:
+class TwisTorr74Driver(AgilentDriver):
     """
     Driver for the Agilent TwisTorr 74 FS Turbomolecular pump rack controller
     """
 
-    def __init__(self, com_port: Optional[str] = None, addr: int = 0):
-        self.addr = addr
+    def __init__(self, com_port: Optional[str] = None, addr: int = 0, **kwargs):
+        super().__init__(addr=addr, **kwargs)
         self.client = SerialClient(device_str=com_port)
 
     async def get_error(self) -> PumpErrorCode:
@@ -66,9 +66,3 @@ class TwisTorr74Driver:
     async def get_status(self) -> PumpStatus:
         response = await self.send_request(STATUS_CMD)
         return PumpStatus(int(response.data))
-
-    async def send_request(self, command: Command, data: Union[bool, int, str] = None, write: bool = False,
-                           **kwargs) -> Response:
-        in_buff = await self.client.send(command.encode(data=data, addr=self.addr, write=write))
-        logger.debug(f"response_str {in_buff}")
-        return parse_response(in_buff)

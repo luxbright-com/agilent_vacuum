@@ -176,6 +176,73 @@ class LanClient:
         return in_buff
 
 
+class AgilentDriver:
+    """
+    Base class for Agilent drivers
+    """
+
+    def __init__(self, addr: int = 0, **kwargs):
+        """
+        Initialize driver
+        :param addr: controller device address for RS485 communication (default 0)
+        """
+        self.addr = addr
+        self.client: Union[LanClient, SerialClient, None] = None
+
+    @staticmethod
+    def parse_response(buff: bytes) -> Response:
+        """
+        Parse response message string to extract address and data attributes
+        :param buff: response message string including STX, ETX and checksum
+        :return: address : int, data: str
+        :raises NACK if command result was negative
+        :raises UnknownWindow if hhe window specified in the command is not a valid window.
+        :raises DataTypeError if the datatype does not match window requirement
+        :raises OutOfRange if the value expressed during a write command is not within the range value for the window.
+        :raises WinDisabled if the window specified is Read Only or is temporarily disabled.
+        """
+        logger.debug(f"buff {buff} has length {len(buff)}")
+        end_pos = buff.find(b'\x03')
+        if end_pos == -1:
+            raise EOFError("Missing ETX, response message is not complete.")
+        message = buff[0:end_pos]
+        logger.debug(f"message {message} has length {len(message)}")
+        addr = message[1] - 0x80
+
+        if len(message) == 3:
+            # ACK / NACK / ERROR
+            response = Response(addr=addr, write=True, result_code=ResultCode(message[2]))
+            # test response codes and raise corresponding exceptions
+            if response.result_code is ResultCode.NACK:
+                raise NACK
+            if response.result_code is ResultCode.UNKNOWN_WINDOW:
+                raise UnknownWindow
+            if response.result_code is ResultCode.DATA_TYPE_ERROR:
+                raise DataTypeError
+            if response.result_code is ResultCode.OUT_OF_RANGE:
+                raise OutOfRange
+            if response.result_code is ResultCode.WIN_DISABLED:
+                raise WinDisabled
+
+        else:
+            # arbitrary length data
+            write = True if message[5] == 1 else False
+            response = Response(addr=addr, win=int(message[2:5]), write=write, data=message[6:])
+        return response
+
+    async def send_request(self, command: Command, data: Union[bool, int, str] = None, write: bool = False) -> Response:
+        """
+        Send request to controller and return a parsed response instance.
+        :param command: Command instance
+        :param data: data to send
+        :param write: read/write command
+        :return: A parsed response encoded as a Response instance
+        """
+        in_buff = await self.client.send(command.encode(data=data, addr=self.addr, write=write))
+        logger.debug(f"response_str {in_buff}")
+        return self.parse_response(in_buff)
+
+
 def calc_checksum(message: bytes) -> int:
     """
     Calculates XOR CRC
@@ -200,43 +267,3 @@ def validate_checksum(message: bytes) -> bool:
     checksum = int(message[-2:], 16)
     return calc_checksum(message[0:-2]) == checksum
 
-
-def parse_response(buff: bytes) -> Response:
-    """
-    Parse response message string to extract address and data attributes
-    :param buff: response message string including STX, ETX and checksum
-    :return: address : int, data: str
-    :raises NACK if command result was negative
-    :raises UnknownWindow if hhe window specified in the command is not a valid window.
-    :raises DataTypeError if the datatype does not match window requirement
-    :raises OutOfRange if the value expressed during a write command is not within the range value for the window.
-    :raises WinDisabled if the window specified is Read Only or is temporarily disabled.
-    """
-    logger.debug(f"buff {buff} has length {len(buff)}")
-    end_pos = buff.find(b'\x03')
-    if end_pos == -1:
-        raise EOFError("Missing ETX, response message is not complete.")
-    message = buff[0:end_pos]
-    logger.debug(f"message {message} has length {len(message)}")
-    addr = message[1] - 0x80
-
-    if len(message) == 3:
-        # ACK / NACK / ERROR
-        response = Response(addr=addr, write=True, result_code=ResultCode(message[2]))
-        # test response codes and raise corresponding exceptions
-        if response.result_code is ResultCode.NACK:
-            raise NACK
-        if response.result_code is ResultCode.UNKNOWN_WINDOW:
-            raise UnknownWindow
-        if response.result_code is ResultCode.DATA_TYPE_ERROR:
-            raise DataTypeError
-        if response.result_code is ResultCode.OUT_OF_RANGE:
-            raise OutOfRange
-        if response.result_code is ResultCode.WIN_DISABLED:
-            raise WinDisabled
-
-    else:
-        # arbitrary length data
-        write = True if message[5] == 1 else False
-        response = Response(addr=addr, win=int(message[2:5]), write=write, data=message[6:])
-    return response

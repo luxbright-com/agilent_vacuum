@@ -5,7 +5,7 @@ from enum import IntEnum, IntFlag
 import logging
 from typing import Optional, Union
 
-from .communication import Command, SerialClient, LanClient, Response, parse_response
+from .communication import Command, SerialClient, LanClient, Response, AgilentDriver
 from .commands import *
 
 logger = logging.getLogger('vacuum')
@@ -49,14 +49,14 @@ class PumpErrorCode(IntFlag):
     PROTECT = 0x80
 
 
-class IpcMiniDriver:
+class IpcMiniDriver(AgilentDriver):
     """
     Driver for the Agilent IPC Mini Ion Pump controller
     https://www.agilent.com/en/product/vacuum-technologies/ion-pumps-controllers/ion-pump-controllers/ipcmini-ion-pump-controller
     """
 
     def __init__(self, com_port: Optional[str] = None, ip_address: Optional[str] = None, ip_port: int = 23,
-                 addr: int = 0):
+                 addr: int = 0, **kwargs):
         """
         Initialize pump driver
         :param com_port: RS232 or RS485 device string
@@ -64,7 +64,7 @@ class IpcMiniDriver:
         :param ip_port: LAN interface port (default 23)
         :param addr: controller device address for RS485 communication (default 0)
         """
-        self.addr = addr
+        super().__init__(addr=addr)
         self.pressure_unit = "unknown"
         if isinstance(com_port, str):
             self.client = SerialClient(device_str=com_port)
@@ -87,17 +87,3 @@ class IpcMiniDriver:
         """
         response = await self.send_request(STATUS_CMD)
         return PumpStatus(int(response.data))
-
-    async def send_request(self, command: Command, data: Union[bool, int, str] = None, write: bool = False,
-                           **kwargs) -> Response:
-        """
-        Send request to controller and return a parsed response.
-        :param command:
-        :param data:
-        :param write:
-        :param kwargs:
-        :return: A parsed response encoded as a Response instance
-        """
-        in_buff = await self.client.send(command.encode(data=data, addr=self.addr, write=write))
-        logger.debug(f"response_str {in_buff}")
-        return parse_response(in_buff)
