@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import asyncio
 import aioserial
 from enum import Enum, IntEnum
@@ -249,6 +250,23 @@ class AgilentDriver:
             write = True if message[5] == 1 else False
             response = Response(addr=addr, win=int(message[2:5]), write=write, data=message[6:])
         return response
+
+    @abstractmethod
+    async def get_pressure(self) -> float:
+        """
+        Read pressure value (in configured unit)
+        Must be implemented in concrete subclasses.
+        :return: pressure value
+        """
+
+    @abstractmethod
+    async def get_pressure_unit(self) -> PressureUnit:
+        """
+        Request pressure unit.
+        Must be implemented in concrete subclasses.
+        :return: PressureUnit enum
+        """
+        pass
 
     async def send_request(self, command: Command, data: Union[bool, int, str] = None, write: bool = False) -> Response:
         """
