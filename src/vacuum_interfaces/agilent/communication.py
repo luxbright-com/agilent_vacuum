@@ -12,6 +12,17 @@ from .exceptions import *
 logger = logging.getLogger('vacuum')
 
 
+class PressureUnit(Enum):
+    """
+    Pressure Unit
+    REMARK: the numerical encoding is NOT consistent among Agilent devices. Don't use this to decode request/response
+    """
+    unknown = 1000
+    mBar = 1001
+    Pa = 1002
+    Torr = 1003
+
+
 class ResultCode(IntEnum):
     """
     Result codes used in response messages
@@ -188,6 +199,15 @@ class AgilentDriver:
         """
         self.addr = addr
         self.client: Union[LanClient, SerialClient, None] = None
+        self.on_connect: Optional[callable] = None
+
+    async def connect(self) -> None:
+        """
+        Initialize communication and set device in known state.
+        Must call async self.on_connect callback at end to allow for custom configuration
+        :return:
+        """
+        ...
 
     @staticmethod
     def parse_response(buff: bytes) -> Response:
