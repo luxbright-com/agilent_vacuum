@@ -197,29 +197,32 @@ class LanClient:
     Lan client for communication with pump controllers.
     Uses blocking telnet as socket.
     """
-    def __init__(self, ip_address: str, ip_port: int = 23, rate_limit: int = 50):
+    def __init__(self, ip_address: str, ip_port: int = 23, rate_limit: int = 200):
         self.lock = asyncio.Lock()   # restrict to one reply request at a time
         self.telnet = Telnet(ip_address, ip_port)
         self.min_wait = 1.0/rate_limit
         self.last_send = time.time()
 
+    def _blocking_send(self, out_buff: bytes) -> bytes:
+        self.telnet.write(out_buff)
+        return self.telnet.read_until(b"\x03") + self.telnet.read_eager()
+
     async def send(self, out_buff: bytes) -> bytes:
         """
-        Send request and wait for reply using telnet
+        Send request and wait for reply using telnet.
+        Uses asyncio run_in_executor for blocking telnet commands
         :param out_buff: 8 bit ascii encoded message string including STX, ETC and checksum
         :return: response message. 8-bit ascii encoding including STX, ETX and checksum
         """
-        # TODO wrap in asyncio executors
         async with self.lock:
             # rate limit
             wait = self.min_wait - (time.time() - self.last_send)
             if wait > 0.0:
                 await asyncio.sleep(wait)
 
-            self.telnet.write(out_buff)
-            in_buff = self.telnet.read_until(b"\x03") + self.telnet.read_eager()
+            loop = asyncio.get_running_loop()
+            in_buff = await loop.run_in_executor(None, self._blocking_send, out_buff)
             self.last_send = time.time()
-        #logger.debug(f"in_buff {in_buff}")
         return in_buff
 
     def close(self) -> None:

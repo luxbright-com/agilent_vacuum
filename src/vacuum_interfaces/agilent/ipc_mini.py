@@ -204,7 +204,6 @@ class IpcMiniDriver(AgilentDriver):
         :raises WinDisabled if the window specified is Read Only or is temporarily disabled.
         """
         response = await self.send_request(UNIT_PRESSURE_CMD)
-        logger.debug(f"Pressure unit data {response.data}")
         self.pressure_unit = self.PRESSURE_UNITS[int(response)]
         return self.pressure_unit
 
