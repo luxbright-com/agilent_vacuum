@@ -67,7 +67,7 @@ class TwisTorr74Driver(AgilentDriver):
     def __init__(self, com_port: Optional[str] = None, addr: int = 0,
                  pressure_unit: PressureUnit = PressureUnit.unknown, **kwargs):
         super().__init__(addr=addr, **kwargs)
-        self.client = SerialClient(device_str=com_port)
+        self.client = SerialClient(com_port=com_port)
         self.pressure_unit = pressure_unit
 
     async def connect(self) -> None:
@@ -85,8 +85,8 @@ class TwisTorr74Driver(AgilentDriver):
         else:
             await self.set_pressure_unit(self.pressure_unit)
 
-        if asyncio.iscoroutinefunction(self.on_connect):
-            await self.on_connect()
+        if asyncio.iscoroutinefunction(self._on_connect):
+            await self._on_connect()
 
     async def get_error(self) -> PumpErrorCode:
         response = await self.send_request(ERROR_CODE_CMD)
@@ -96,7 +96,7 @@ class TwisTorr74Driver(AgilentDriver):
         response = await self.send_request(STATUS_CMD)
         return PumpStatus(int(response.data))
 
-    async def get_pressure(self) -> float:
+    async def read_pressure(self) -> float:
         """
         Read pressure value (in configured unit)
         :return: pressure value
