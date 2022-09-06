@@ -5,6 +5,7 @@ from enum import Enum, IntEnum
 from dataclasses import dataclass
 import logging
 import serial
+import time
 from telnetlib import Telnet
 from typing import Optional, Union
 
@@ -46,6 +47,24 @@ class Response:
     result_code: Optional[ResultCode] = None
     write: bool = False
     win: Optional[int] = None
+
+    def __float__(self):
+        return float(self.data)
+
+    def __int__(self):
+        return int(self.data)
+
+    def __str__(self):
+        return str(self.data)
+
+    def __bool__(self):
+        result = int(self.data)
+        if result == 1:
+            return True
+        elif result == 0:
+            return False
+        else:
+            raise ValueError("data is not 0 or 1")
 
 
 class DataType(Enum):
@@ -124,7 +143,7 @@ class Command:
         # we must encode as 8 bit ascii to support the address parameter
         out_buff = bytearray(message.encode('iso-8859-1'))
         checksum = f"{calc_checksum(out_buff):x}".upper().encode('iso-8859-1')
-        logger.debug(f"message {out_buff} checksum {checksum}")
+        # logger.debug(f"message {out_buff} checksum {checksum}")
         out_buff.extend(checksum)
         return out_buff
 
@@ -133,19 +152,19 @@ class SerialClient:
     """
     RS232 and RS485 client for communication with Pump Controllers
     """
-    def __init__(self, device_str: str, baudrate: int = 9600, timeout: float = 0.1):
+    def __init__(self, com_port: str, baudrate: int = 9600, timeout: float = 0.1):
         """
         Initialize
-        :param device_str: communication port
+        :param com_port: communication port
         :param baudrate: communication speed (default 9600)
         :param timeout: read/write timeout
         """
-        self.serial = aioserial.AioSerial(port=device_str, baudrate=baudrate,
+        self.serial = aioserial.AioSerial(port=com_port, baudrate=baudrate,
                                           stopbits=serial.STOPBITS_ONE,
                                           timeout=timeout,
                                           write_timeout=timeout)
         self.lock = asyncio.Lock()  # restrict to one reply request at a time
-        logger.info(f"Serial port {device_str}")
+        logger.info(f"Serial port {com_port}")
 
     async def send(self, out_buff: bytes) -> bytes:
         """
@@ -154,15 +173,23 @@ class SerialClient:
         :return: response message. 8-bit ascii encoding including STX, ETX and checksum
         """
         async with self.lock:
-            logger.debug(f"out_buff {out_buff}")
             sent_bytes = await self.serial.write_async(out_buff)
-            logger.debug(f"sent bytes {sent_bytes}")
+            # logger.debug(f"sent bytes {sent_bytes}")
 
             # TODO add fault check
 
             in_buff = await self.serial.read_until_async(expected=b'/x03')
-            logger.debug(f"in_buff {in_buff}")
             return in_buff
+
+    def close(self) -> None:
+        """
+        Close Client
+        :return: None
+        """
+        self.serial.close()
+
+    def __del__(self):
+        self.close()
 
 
 class LanClient:
@@ -170,9 +197,11 @@ class LanClient:
     Lan client for communication with pump controllers.
     Uses blocking telnet as socket.
     """
-    def __init__(self, ip_address: str, ip_port: int = 23):
+    def __init__(self, ip_address: str, ip_port: int = 23, rate_limit: int = 50):
         self.lock = asyncio.Lock()   # restrict to one reply request at a time
         self.telnet = Telnet(ip_address, ip_port)
+        self.min_wait = 1.0/rate_limit
+        self.last_send = time.time()
 
     async def send(self, out_buff: bytes) -> bytes:
         """
@@ -182,10 +211,26 @@ class LanClient:
         """
         # TODO wrap in asyncio executors
         async with self.lock:
+            # rate limit
+            wait = self.min_wait - (time.time() - self.last_send)
+            if wait > 0.0:
+                await asyncio.sleep(wait)
+
             self.telnet.write(out_buff)
             in_buff = self.telnet.read_until(b"\x03") + self.telnet.read_eager()
-        logger.debug(f"in_buff {in_buff}")
+            self.last_send = time.time()
+        #logger.debug(f"in_buff {in_buff}")
         return in_buff
+
+    def close(self) -> None:
+        """
+        Close Client
+        :return: None
+        """
+        self.telnet.close()
+
+    def __del__(self):
+        self.close()
 
 
 class AgilentDriver:
@@ -200,7 +245,7 @@ class AgilentDriver:
         """
         self.addr = addr
         self.client: Union[LanClient, SerialClient, None] = None
-        self.on_connect: Optional[callable] = None
+        self._on_connect: list[callable] = []
 
     async def connect(self) -> None:
         """
@@ -209,6 +254,17 @@ class AgilentDriver:
         :return:
         """
         ...
+
+    @property
+    def on_connect(self) -> list:
+        return self.on_connect
+
+    @on_connect.setter
+    def on_connect(self, cb: callable):
+        if callable(cb):
+            self._on_connect.append(cb)
+        else:
+            raise TypeError("on connect cb must ba a callable")
 
     @staticmethod
     def parse_response(buff: bytes) -> Response:
@@ -222,12 +278,10 @@ class AgilentDriver:
         :raises OutOfRange if the value expressed during a write command is not within the range value for the window.
         :raises WinDisabled if the window specified is Read Only or is temporarily disabled.
         """
-        logger.debug(f"buff {buff} has length {len(buff)}")
         end_pos = buff.find(b'\x03')
         if end_pos == -1:
             raise EOFError("Missing ETX, response message is not complete.")
         message = buff[0:end_pos]
-        logger.debug(f"message {message} has length {len(message)}")
         addr = message[1] - 0x80
 
         if len(message) == 3:
@@ -252,7 +306,7 @@ class AgilentDriver:
         return response
 
     @abstractmethod
-    async def get_pressure(self) -> float:
+    async def read_pressure(self) -> float:
         """
         Read pressure value (in configured unit)
         Must be implemented in concrete subclasses.
@@ -277,7 +331,7 @@ class AgilentDriver:
         :return: A parsed response encoded as a Response instance
         """
         in_buff = await self.client.send(command.encode(data=data, addr=self.addr, write=write))
-        logger.debug(f"response_str {in_buff}")
+        # logger.debug(f"response_str {in_buff}")
         return self.parse_response(in_buff)
 
 
