@@ -177,7 +177,7 @@ class SerialClient:
             # logger.debug(f"sent bytes {sent_bytes}")
 
             # TODO add fault check
-
+            # TODO add timeout handling
             in_buff = await self.serial.read_until_async(expected=b'/x03')
             return in_buff
 
@@ -197,15 +197,25 @@ class LanClient:
     Lan client for communication with pump controllers.
     Uses blocking telnet as socket.
     """
-    def __init__(self, ip_address: str, ip_port: int = 23, rate_limit: int = 200):
+    def __init__(self, host: str, port: int = 23,
+                 timeout: float = 0.2, rate_limit: int = 200):
+        self.host = host
+        self.port = port
+        self.timeout = timeout
         self.lock = asyncio.Lock()   # restrict to one reply request at a time
-        self.telnet = Telnet(ip_address, ip_port)
+        self.telnet = Telnet()
         self.min_wait = 1.0/rate_limit
         self.last_send = time.time()
+        self.open()
+
+    def open(self):
+        self.telnet.open(host=self.host, port=self.port, timeout=self.timeout)
 
     def _blocking_send(self, out_buff: bytes) -> bytes:
         self.telnet.write(out_buff)
-        return self.telnet.read_until(b"\x03") + self.telnet.read_eager()
+        reply = self.telnet.read_until(b"\x03", timeout=self.timeout)
+        checksum = self.telnet.read_eager()
+        return reply + checksum
 
     async def send(self, out_buff: bytes) -> bytes:
         """
@@ -248,12 +258,14 @@ class AgilentDriver:
         """
         self.addr = addr
         self.client: Union[LanClient, SerialClient, None] = None
+        self.is_connected: bool = False
         self._on_connect: list[callable] = []
+        self._on_disconnect: list[callable] = []
 
     async def connect(self) -> None:
         """
         Initialize communication and set device in known state.
-        Must call async self.on_connect callback at end to allow for custom configuration
+        Must call self.on_connect callbacks to notify instance users
         :return:
         """
         ...
@@ -266,6 +278,17 @@ class AgilentDriver:
     def on_connect(self, cb: callable):
         if callable(cb):
             self._on_connect.append(cb)
+        else:
+            raise TypeError("on connect cb must ba a callable")
+
+    @property
+    def on_disconnect(self) -> list:
+        return self.on_connect
+
+    @on_disconnect.setter
+    def on_disconnect(self, cb: callable):
+        if callable(cb):
+            self._on_disconnect.append(cb)
         else:
             raise TypeError("on connect cb must ba a callable")
 
