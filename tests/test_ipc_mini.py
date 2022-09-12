@@ -19,7 +19,7 @@ async def test_ipc_mini_serial():
 @pytest.mark.asyncio
 async def test_ipc_mini_lan():
     # test via RS232
-    ipc_mini = IpcMiniDriver(ip_address="192.168.1.230", addr=0)
+    ipc_mini = IpcMiniDriver(host="192.168.1.230", addr=0)
     # ipc_mini.connect()
     response = await ipc_mini.send_request(STATUS_CMD)
     assert response.result_code is None
@@ -27,8 +27,8 @@ async def test_ipc_mini_lan():
 
 @pytest.mark.asyncio
 async def test_ipc_mini_basic_commands():
-    # test via RS232
-    ipc_mini = IpcMiniDriver(ip_address="192.168.1.230", addr=0)
+    # test via LAN. ONLY READ COMMANDS
+    ipc_mini = IpcMiniDriver(host="192.168.1.230", addr=0)
 
     status = await ipc_mini.get_status()
     logger.info(f"pump status: {status.name}")
@@ -118,13 +118,14 @@ async def test_ipc_mini_basic_commands():
 @pytest.mark.asyncio
 async def test_ipc_mini_high_level():
     # test via LAN
+    # Rewrite this to not switch on ion pump
 
     async def on_connect_cb():
         nonlocal on_connect_called
         on_connect_called = True
 
     on_connect_called = False
-    ipc_mini = IpcMiniDriver(ip_address="192.168.1.230", addr=0, pressure_unit=PressureUnit.mBar)
+    ipc_mini = IpcMiniDriver(host="192.168.1.230", addr=0)
     ipc_mini.on_connect = on_connect_cb
     await ipc_mini.connect()
     assert on_connect_called is True
@@ -140,7 +141,7 @@ async def test_ipc_mini_high_level():
     status = await ipc_mini.get_status()
     assert status is PumpStatus.NORMAL
     unit = await ipc_mini.get_pressure_unit()
-    assert unit is PressureUnit.mBar
+    # assert unit is PressureUnit.mBar
     pressure = await ipc_mini.read_pressure()
     logger.info(f"pressure {pressure} {unit.name}")
     assert pressure < 1e-6
@@ -186,7 +187,7 @@ async def test_ipc_mini_high_level():
 
 @pytest.mark.asyncio
 async def test_rate_limit():
-    ipc_mini = IpcMiniDriver(ip_address="192.168.1.230")
+    ipc_mini = IpcMiniDriver(host="192.168.1.230")
     await ipc_mini.connect()
     start = time.time()
     for i in range(100):

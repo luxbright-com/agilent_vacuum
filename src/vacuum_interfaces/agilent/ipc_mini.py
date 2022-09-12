@@ -77,26 +77,25 @@ class IpcMiniDriver(AgilentDriver):
     """
     PRESSURE_UNITS = [PressureUnit.Torr, PressureUnit.mBar, PressureUnit.Pa]
 
-    def __init__(self, com_port: Optional[str] = None, ip_address: Optional[str] = None, ip_port: int = 23,
-                 addr: int = 0, pressure_unit: PressureUnit = PressureUnit.unknown, **kwargs):
+    def __init__(self, com_port: Optional[str] = None, host: Optional[str] = None, port: int = 23,
+                 addr: int = 0, **kwargs):
         """
         Initialize pump driver
         :param com_port: RS232 or RS485 device string
-        :param ip_address: LAN interface IP address
-        :param ip_port: LAN interface port (default 23)
+        :param host: LAN interface IP address
+        :param port: LAN interface port (default 23)
         :param addr: controller device address for RS485 communication (default 0)
         """
         super().__init__(addr=addr)
-        self.pressure_unit = pressure_unit
         if isinstance(com_port, str):
             self.client = SerialClient(com_port=com_port)
-        elif isinstance(ip_address, str):
-            self.client = LanClient(ip_address=ip_address, ip_port=ip_port)
+        elif isinstance(host, str):
+            self.client = LanClient(host=host, port=port)
 
     async def connect(self) -> None:
         """
         Test device connection and do base configuration
-        :return:
+        :return: None
         """
         logger.info("Connecting to IpcMini Ion pump controller")
         response = await self.send_request(CONTROLLER_MODEL_CMD)
@@ -117,10 +116,7 @@ class IpcMiniDriver(AgilentDriver):
         errors = await self.get_error()
         logger.info(f"status:{status.name} errors: {errors.name}")
 
-        if self.pressure_unit is PressureUnit.unknown:
-            self.pressure_unit = await self.get_pressure_unit()
-        else:
-            await self.set_pressure_unit(self.pressure_unit)
+        self.is_connected = True
 
         for cb in self._on_connect:
             if asyncio.iscoroutinefunction(cb):
@@ -204,10 +200,9 @@ class IpcMiniDriver(AgilentDriver):
         :raises WinDisabled if the window specified is Read Only or is temporarily disabled.
         """
         response = await self.send_request(UNIT_PRESSURE_CMD)
-        self.pressure_unit = self.PRESSURE_UNITS[int(response)]
-        return self.pressure_unit
+        return self.PRESSURE_UNITS[int(response)]
 
-    async def set_pressure_unit(self, unit: PressureUnit) -> PressureUnit:
+    async def set_pressure_unit(self, unit: PressureUnit) -> None:
         """
         Set pressure unit
         :param unit: pressure unit as PressureUnit enum
@@ -220,8 +215,6 @@ class IpcMiniDriver(AgilentDriver):
         """
         data = self.PRESSURE_UNITS.index(unit)
         await self.send_request(UNIT_PRESSURE_CMD, write=True, data=data)
-        self.pressure_unit = unit
-        return self.pressure_unit
 
     async def get_protect(self) -> bool:
         """
