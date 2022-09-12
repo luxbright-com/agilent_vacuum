@@ -8,6 +8,7 @@ from typing import Optional, Union
 
 from .communication import Command, SerialClient, LanClient, Response, AgilentDriver, PressureUnit
 from .commands import *
+from .exceptions import *
 
 logger = logging.getLogger('vacuum')
 
@@ -92,11 +93,31 @@ class IpcMiniDriver(AgilentDriver):
         elif isinstance(host, str):
             self.client = LanClient(host=host, port=port)
 
-    async def connect(self) -> None:
+    async def connect(self, max_retries: int = 1) -> None:
         """
         Test device connection and do base configuration
         :return: None
         """
+        retries = 0
+        while self.is_connected is False:
+            try:
+                if isinstance(self.client, LanClient):
+                    self.client.open()
+                else:
+                    self.client.open()
+                    response = await self.send_request(STATUS_CMD, force=True)
+                self.is_connected = True
+            except OSError:
+                logger.debug("Failed to open")
+                self.client.close()
+                if max_retries > 0:
+                    retries += 1
+                    if retries > max_retries:
+                        logger.error(f"Failed to connect to IPC Mini")
+                        raise ComError(f"Failed to connect to IPC Mini")
+
+                await asyncio.sleep(0.5)
+
         logger.info("Connecting to IpcMini Ion pump controller")
         response = await self.send_request(CONTROLLER_MODEL_CMD)
         model = response.data
@@ -115,8 +136,6 @@ class IpcMiniDriver(AgilentDriver):
         status = await self.get_status()
         errors = await self.get_error()
         logger.info(f"status:{status.name} errors: {errors.name}")
-
-        self.is_connected = True
 
         for cb in self._on_connect:
             if asyncio.iscoroutinefunction(cb):

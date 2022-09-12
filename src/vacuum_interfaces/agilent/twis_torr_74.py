@@ -137,16 +137,21 @@ class TwisTorr74Driver(AgilentDriver):
         super().__init__(addr=addr, **kwargs)
         self.client = SerialClient(com_port=com_port)
 
-    async def connect(self) -> None:
+    async def connect(self, max_retries: int = 1) -> None:
         """
         Test device connection and do base configuration
         :return:
         """
+        # TODO add connect fail check and retry
+        self.is_connected = False
+        # this will raise an exception if send_request fails
+        response = await self.send_request(STATUS_CMD, force=True)
+        self.is_connected = True
+
         status = await self.get_status()
         errors = await self.get_error()
         logger.info(f"status:{status.name} errors: {errors.name}")
 
-        self.is_connected = True
 
         for cb in self._on_connect:
             if asyncio.iscoroutinefunction(cb):

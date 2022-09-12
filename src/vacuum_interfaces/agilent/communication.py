@@ -166,6 +166,9 @@ class SerialClient:
         self.lock = asyncio.Lock()  # restrict to one reply request at a time
         logger.info(f"Serial port {com_port}")
 
+    async def open(self):
+        ...
+
     async def send(self, out_buff: bytes) -> bytes:
         """
         Send request and wait for reply
@@ -206,7 +209,6 @@ class LanClient:
         self.telnet = Telnet()
         self.min_wait = 1.0/rate_limit
         self.last_send = time.time()
-        self.open()
 
     def open(self):
         self.telnet.open(host=self.host, port=self.port, timeout=self.timeout)
@@ -262,7 +264,7 @@ class AgilentDriver:
         self._on_connect: list[callable] = []
         self._on_disconnect: list[callable] = []
 
-    async def connect(self) -> None:
+    async def connect(self, max_retries: int = 1) -> None:
         """
         Initialize communication and set device in known state.
         Must call self.on_connect callbacks to notify instance users
@@ -348,17 +350,22 @@ class AgilentDriver:
         """
         pass
 
-    async def send_request(self, command: Command, data: Union[bool, int, str] = None, write: bool = False) -> Response:
+    async def send_request(self, command: Command, data: Union[bool, int, str] = None, write: bool = False,
+                           force: bool = False) -> Response:
         """
         Send request to controller and return a parsed response instance.
         :param command: Command instance
         :param data: data to send
         :param write: read/write command
+        :param force: force a send command when self.is_connected is False
         :return: A parsed response encoded as a Response instance
         """
-        in_buff = await self.client.send(command.encode(data=data, addr=self.addr, write=write))
-        # logger.debug(f"response_str {in_buff}")
-        return self.parse_response(in_buff)
+        if self.is_connected or force:
+            in_buff = await self.client.send(command.encode(data=data, addr=self.addr, write=write))
+            # logger.debug(f"response_str {in_buff}")
+            return self.parse_response(in_buff)
+        else:
+            raise ComError("Pump controller is not connected.")
 
 
 def calc_checksum(message: bytes) -> int:

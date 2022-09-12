@@ -32,3 +32,9 @@ class WinDisabled(Exception):
     """
     The window specified is Read Only or is temporarily disabled.
     """
+
+
+class ComError(Exception):
+    """
+    The pump controller does not respond, or some other communication error occurred.
+    """
