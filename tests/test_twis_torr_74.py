@@ -8,7 +8,7 @@ async def test_serial_request():
     # test via RS232
     pump = TwisTorr74Driver(com_port='/dev/ttyUSB0', addr=0)
     # ipc_mini.connect()
-    response = await pump.send_request(STATUS_CMD)
+    response = await pump.send_request(STATUS_CMD, force=True)
     assert response.result_code is None
 
 
@@ -16,6 +16,7 @@ async def test_serial_request():
 async def test_send_basic_commands():
     # test via RS232. ONLY READ COMMANDS
     ctrl = TwisTorr74Driver(com_port='/dev/ttyUSB0', addr=0)
+    await ctrl.connect(max_retries=1)
 
     response = await ctrl.send_request(STATUS_CMD)
     logger.debug(f"STATUS_CMD {response.data}")
@@ -192,7 +193,7 @@ async def test_high_level():
 
     ctrl = TwisTorr74Driver(com_port='/dev/ttyUSB0', addr=0)
     on_connect_called = False
-
+    await ctrl.connect(max_retries=1)
     status = await ctrl.get_status()
     assert status is PumpStatus.STOP
 

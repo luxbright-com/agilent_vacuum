@@ -159,6 +159,7 @@ class SerialClient:
         :param baudrate: communication speed (default 9600)
         :param timeout: read/write timeout
         """
+        self.port = com_port
         self.serial = aioserial.AioSerial(port=com_port, baudrate=baudrate,
                                           stopbits=serial.STOPBITS_ONE,
                                           timeout=timeout,

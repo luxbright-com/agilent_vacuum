@@ -7,12 +7,13 @@ from vacuum_interfaces.agilent.ipc_mini import *
 
 logger = logging.getLogger("vacuum")
 
+
 @pytest.mark.asyncio
 async def test_ipc_mini_serial():
     # test via RS232
     ipc_mini = IpcMiniDriver(com_port='/dev/ttyUSB0', addr=0)
     # ipc_mini.connect()
-    response = await ipc_mini.send_request(STATUS_CMD)
+    response = await ipc_mini.send_request(STATUS_CMD, force=True)
     assert response.result_code is None
 
 
@@ -20,7 +21,7 @@ async def test_ipc_mini_serial():
 async def test_ipc_mini_lan():
     # test via RS232
     ipc_mini = IpcMiniDriver(host="192.168.1.230", addr=0)
-    # ipc_mini.connect()
+    await ipc_mini.connect(max_retries=1)
     response = await ipc_mini.send_request(STATUS_CMD)
     assert response.result_code is None
 
@@ -29,7 +30,7 @@ async def test_ipc_mini_lan():
 async def test_ipc_mini_basic_commands():
     # test via LAN. ONLY READ COMMANDS
     ipc_mini = IpcMiniDriver(host="192.168.1.230", addr=0)
-
+    await ipc_mini.connect(max_retries=1)
     status = await ipc_mini.get_status()
     logger.info(f"pump status: {status.name}")
     assert (status is PumpStatus.NORMAL) or (status is PumpStatus.STOP)
@@ -135,6 +136,8 @@ async def test_ipc_mini_high_level():
     await asyncio.sleep(1.0)
     status = await ipc_mini.get_status()
     assert status is PumpStatus.STOP
+    pressure = await ipc_mini.read_pressure()
+    logger.info(f"STOP pressure {pressure}")
 
     await ipc_mini.start()
     await asyncio.sleep(1.0)
@@ -193,3 +196,9 @@ async def test_rate_limit():
     for i in range(100):
         await ipc_mini.get_status()
     logger.info(f"Rate limit test. 100 calls in {time.time() - start}")
+
+
+@pytest.mark.asyncio
+async def test_rate_limit():
+    ipc_mini = IpcMiniDriver(host="192.168.1.230")
+    await ipc_mini.connect(max_retries=0)
