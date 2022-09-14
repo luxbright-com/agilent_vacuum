@@ -281,3 +281,16 @@ async def test_high_level():
     await ctrl.set_vent_delay_time(delay_backup)
     await asyncio.sleep(pause_time)
     assert await ctrl.get_vent_delay_time() == pytest.approx(delay_backup)
+
+    gauge_power_bkp = await ctrl.get_gauge_power()
+    await ctrl.set_gauge_power(0)  # off
+    assert await ctrl.get_gauge_power() == 0
+    await ctrl.set_gauge_power(1)  # on
+    assert await ctrl.get_gauge_power() == 1
+    gauge_status = await ctrl.get_gauge_status()
+    logger.info(f"Gauge power: {gauge_power_bkp} status: {gauge_status.name}")
+    await ctrl.set_gauge_power(gauge_power_bkp)  # off
+
+    unit = await ctrl.get_pressure_unit()
+    value = await ctrl.read_pressure()
+    logger.info(f"Pressure {value} {unit}")

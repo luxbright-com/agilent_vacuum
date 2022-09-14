@@ -12,6 +12,7 @@ from .exceptions import *
 
 logger = logging.getLogger('vacuum')
 
+
 # TODO implement all commands
 START_STOP_CMD = Command(win=0, writable=True, datatype=DataType.NUMERIC,
                          description="Start/Stop (in remote/ mode the window is read only)")
@@ -105,6 +106,14 @@ GAUGE_STATUS_CMD = Command(win=257, writable=False, datatype=DataType.NUMERIC, d
 GAUGE_POWER_CMD = Command(win=267, writable=True, datatype=DataType.NUMERIC, description="Gauge power")
 
 
+class GaugeStatus(IntEnum):
+    NOT_CONNECTED = 0
+    CONNECTED = 1
+    UNDER_RANGE = 2
+    OVER_RANGE = 3
+    RID_UNKNOWN = 4
+
+
 class PumpStatus(IntEnum):
     STOP = 0
     WAITING = 1
@@ -152,7 +161,6 @@ class TwisTorr74Driver(AgilentDriver):
         errors = await self.get_error()
         logger.info(f"status:{status.name} errors: {errors.name}")
 
-
         for cb in self._on_connect:
             if asyncio.iscoroutinefunction(cb):
                 await cb()
@@ -166,6 +174,30 @@ class TwisTorr74Driver(AgilentDriver):
     async def get_status(self) -> PumpStatus:
         response = await self.send_request(STATUS_CMD)
         return PumpStatus(int(response.data))
+
+    async def get_gauge_status(self) -> GaugeStatus:
+        """
+        Get Gauge status
+        :return: GaugeStatus
+        """
+        response = await self.send_request(GAUGE_STATUS_CMD)
+        return GaugeStatus(int(response.data))
+
+    async def get_gauge_power(self) -> int:
+        """
+        Get gauge power
+        :return:
+        """
+        response = await self.send_request(GAUGE_POWER_CMD)
+        return int(response)
+
+    async def set_gauge_power(self, value: int) -> None:
+        """
+        Enable / disable gauge power
+        :param value: 0 = gauge off, 1= gauge on
+        :return: None
+        """
+        await self.send_request(GAUGE_POWER_CMD, write=True, data=value)
 
     async def get_active_stop(self) -> bool:
         """
