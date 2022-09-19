@@ -194,7 +194,8 @@ class SerialClient:
         Close Client
         :return: None
         """
-        self.serial.close()
+        if self.serial is not None:
+            self.serial.close()
 
     def __del__(self):
         self.close()
