@@ -160,10 +160,14 @@ class SerialClient:
         :param timeout: read/write timeout
         """
         self.port = com_port
-        self.serial = aioserial.AioSerial(port=com_port, baudrate=baudrate,
-                                          stopbits=serial.STOPBITS_ONE,
-                                          timeout=timeout,
-                                          write_timeout=timeout)
+        try:
+            self.serial = aioserial.AioSerial(port=com_port, baudrate=baudrate,
+                                              stopbits=serial.STOPBITS_ONE,
+                                              timeout=timeout,
+                                              write_timeout=timeout)
+        except serial.SerialException as e:
+            logger.error(f"Could not open serial port {e}")
+            raise ComError(f"Could not open serial port {e}")
         self.lock = asyncio.Lock()  # restrict to one reply request at a time
         logger.info(f"Serial port {com_port}")
 
