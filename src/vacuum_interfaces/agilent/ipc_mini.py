@@ -110,7 +110,7 @@ class IpcMiniDriver(AgilentDriver):
                     response = await self.send_request(STATUS_CMD, force=True)
                     logger.info(f"IPC mini connected {self.client.port}")
                 self.is_connected = True
-            except (OSError, ComError) as e:
+            except (OSError, EOFError, ComError) as e:
                 logger.debug(f"Failed to open {e}")
                 self.client.close()
                 if max_retries > 0:

@@ -291,6 +291,15 @@ async def test_high_level():
     logger.info(f"Gauge power: {gauge_power_bkp} status: {gauge_status.name}")
     await ctrl.set_gauge_power(gauge_power_bkp)  # off
 
+    # read turbo speed and temperature
+    speed = await ctrl.read_turbo_speed()
+    assert isinstance(speed, float)
+    temp = await ctrl.read_turbo_temperature()
+    assert isinstance(temp, float)
+    assert temp > 15.0
+    assert temp < 70.0
+    logger.info(f"Turbo speed: {speed} rpm, temp: {temp} °C")
+
     unit = await ctrl.get_pressure_unit()
     value = await ctrl.read_pressure()
     logger.info(f"Pressure {value} {unit}")
