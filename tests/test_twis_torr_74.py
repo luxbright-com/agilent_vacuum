@@ -294,7 +294,7 @@ async def test_high_level():
     # read turbo speed and temperature
     speed = await ctrl.read_turbo_speed()
     assert isinstance(speed, float)
-    temp = await ctrl.read_turbo_temperature()
+    temp = await ctrl.read_turbo_temp()
     assert isinstance(temp, float)
     assert temp > 15.0
     assert temp < 70.0

@@ -299,6 +299,22 @@ class TwisTorr74Driver(AgilentDriver):
         logger.info(f"encode {enable} {cmd.encode(write=True, data=enable)}")
         await self.send_request(SOFT_START_CMD, write=True, data=enable)
 
+    async def read_turbo_speed(self) -> float:
+        """
+        Read the turbo speed in RPM
+        :return: turbo speed in RPM
+        """
+        response = await self.send_request(ROTATION_FREQUENCY_CMD)
+        return float(response)
+
+    async def read_turbo_temp(self) -> float:
+        """
+        Read the turbo temperature in °C
+        :return: turbo temperature
+        """
+        response = await self.send_request(PUMP_TEMPERATURE_CMD)
+        return float(response)
+
     async def get_vent_open(self) -> bool:
         """
         Get vent valve state
