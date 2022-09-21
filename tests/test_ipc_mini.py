@@ -107,7 +107,7 @@ async def test_ipc_mini_basic_commands():
 
     response = await ipc_mini.send_request(V_MEASURED_CH1_CMD)
     logger.info(f"voltage measured {response.data} {float(response)}")
-    assert float(response) > 3000
+    assert float(response) > 3000.0
 
     response = await ipc_mini.send_request(I_MEASURED_CH1_CMD)
     logger.info(f"current measured {float(response)}")
@@ -202,3 +202,14 @@ async def test_rate_limit():
 async def test_rate_limit():
     ipc_mini = IpcMiniDriver(host="192.168.1.230")
     await ipc_mini.connect(max_retries=0)
+
+
+@pytest.mark.asyncio
+async def test_long_run():
+    ipc_mini = IpcMiniDriver(host="192.168.1.230")
+    await ipc_mini.connect()
+    start = time.time()
+    while ipc_mini.is_connected is True:
+        pressure = await ipc_mini.read_pressure()
+        logger.info(f"pressure {pressure} time {time.time()}")
+        await asyncio.sleep(1.0)

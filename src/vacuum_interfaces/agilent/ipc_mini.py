@@ -168,8 +168,13 @@ class IpcMiniDriver(AgilentDriver):
         Read pressure value (in configured unit)
         :return: pressure value
         """
-        response = await self.send_request(PRESSURE_CH1_CMD)
-        return float(response)
+        try:
+            response = await self.send_request(PRESSURE_CH1_CMD)
+            return float(response)
+        except EOFError:
+            logger.warning("Read pressure failed. EOFError")
+        except WinDisabled:
+            logger.warning("Read pressure failed. WinDisabled")
 
     async def get_autostart(self) -> bool:
         """

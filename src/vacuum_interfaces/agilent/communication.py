@@ -7,6 +7,7 @@ import logging
 import serial
 import time
 from telnetlib import Telnet
+from threading import Thread
 from typing import Optional, Union
 
 from .exceptions import *
@@ -215,15 +216,32 @@ class LanClient:
         self.telnet = Telnet()
         self.min_wait = 1.0/rate_limit
         self.last_send = time.time()
+        self.is_connected = False
+        self.reconnect_thread = Thread(target=self.reconnect, daemon=True)
+
+    def reconnect(self):
+        while self.is_connected is False:
+            time.sleep(1.0)
+            logger.info("reconnecting")
+            self.open()
 
     def open(self):
         self.telnet.open(host=self.host, port=self.port, timeout=self.timeout)
+        self.is_connected = True
 
     def _blocking_send(self, out_buff: bytes) -> bytes:
-        self.telnet.write(out_buff)
-        reply = self.telnet.read_until(b"\x03", timeout=self.timeout)
-        checksum = self.telnet.read_eager()
-        return reply + checksum
+        error = None
+        try:
+            self.telnet.write(out_buff)
+            reply = self.telnet.read_until(b"\x03", timeout=self.timeout)
+            checksum = self.telnet.read_eager()
+            return reply + checksum
+        except EOFError as e:
+            logger.error(f"Telnet error {e}")
+            # self.is_connected = False
+        except BrokenPipeError as e:
+            logger.error(f"Telnet error {e}")
+            self.is_connected = False
 
     async def send(self, out_buff: bytes) -> bytes:
         """
@@ -241,6 +259,13 @@ class LanClient:
             loop = asyncio.get_running_loop()
             in_buff = await loop.run_in_executor(None, self._blocking_send, out_buff)
             self.last_send = time.time()
+
+            if self.is_connected is False:
+                # Only start one reconnect thread
+                if self.reconnect_thread.is_alive() is False:
+                    self.reconnect_thread = Thread(target=self.reconnect, daemon=True)
+                    self.reconnect_thread.start()
+
         return in_buff
 
     def close(self) -> None:
@@ -312,6 +337,8 @@ class AgilentDriver:
         :raises OutOfRange if the value expressed during a write command is not within the range value for the window.
         :raises WinDisabled if the window specified is Read Only or is temporarily disabled.
         """
+        if buff is None:
+            raise EOFError("Buff is empty")
         end_pos = buff.find(b'\x03')
         if end_pos == -1:
             raise EOFError("Missing ETX, response message is not complete.")
