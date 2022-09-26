@@ -106,7 +106,7 @@ class IpcMiniDriver(AgilentDriver):
                     response = await self.send_request(CONTROLLER_MODEL_CMD, force=True)
                     logger.info(f"IPC mini connected {self.client.host}:{self.client.port}")
                 else:
-                    self.client.open()
+                    # self.client.open()
                     response = await self.send_request(STATUS_CMD, force=True)
                     logger.info(f"IPC mini connected {self.client.port}")
                 self.is_connected = True

@@ -29,7 +29,7 @@ async def test_ipc_mini_lan():
 @pytest.mark.asyncio
 async def test_ipc_mini_basic_commands():
     # test via LAN. ONLY READ COMMANDS
-    ipc_mini = IpcMiniDriver(host="192.168.1.230", addr=0)
+    ipc_mini = IpcMiniDriver(com_port='/dev/ttyUSB0', addr=0)
     await ipc_mini.connect(max_retries=1)
     status = await ipc_mini.get_status()
     logger.info(f"pump status: {status.name}")
@@ -126,7 +126,7 @@ async def test_ipc_mini_high_level():
         on_connect_called = True
 
     on_connect_called = False
-    ipc_mini = IpcMiniDriver(host="192.168.1.230", addr=0)
+    ipc_mini = IpcMiniDriver(com_port='/dev/ttyUSB0', addr=0)
     ipc_mini.on_connect = on_connect_cb
     await ipc_mini.connect()
     assert on_connect_called is True
@@ -206,10 +206,11 @@ async def test_rate_limit():
 
 @pytest.mark.asyncio
 async def test_long_run():
-    ipc_mini = IpcMiniDriver(host="192.168.1.230")
+    ipc_mini = IpcMiniDriver(com_port='/dev/ttyUSB0', addr=0)
     await ipc_mini.connect()
     start = time.time()
     while ipc_mini.is_connected is True:
         pressure = await ipc_mini.read_pressure()
-        logger.info(f"pressure {pressure} time {time.time()}")
-        await asyncio.sleep(1.0)
+        voltage = await ipc_mini.read_voltage()
+        logger.info(f"pressure {pressure} voltage {voltage} time {time.time()}")
+        await asyncio.sleep(0.25)

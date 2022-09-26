@@ -7,6 +7,7 @@ import logging
 import serial
 import time
 from telnetlib import Telnet
+from tenacity import *
 from threading import Thread
 from typing import Optional, Union
 
@@ -172,7 +173,7 @@ class SerialClient:
         self.lock = asyncio.Lock()  # restrict to one reply request at a time
         logger.info(f"Serial port {com_port}")
 
-    async def open(self):
+    def open(self):
         ...
 
     async def send(self, out_buff: bytes) -> bytes:
@@ -208,7 +209,7 @@ class LanClient:
     Uses blocking telnet as socket.
     """
     def __init__(self, host: str, port: int = 23,
-                 timeout: float = 0.2, rate_limit: int = 200):
+                 timeout: float = 0.5, rate_limit: int = 10):
         self.host = host
         self.port = port
         self.timeout = timeout
@@ -229,19 +230,34 @@ class LanClient:
         self.telnet.open(host=self.host, port=self.port, timeout=self.timeout)
         self.is_connected = True
 
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(0.2))
     def _blocking_send(self, out_buff: bytes) -> bytes:
-        error = None
+        # Purge input buffer
+        try:
+            self.telnet.read_eager()
+        except EOFError:
+            pass
+
         try:
             self.telnet.write(out_buff)
             reply = self.telnet.read_until(b"\x03", timeout=self.timeout)
             checksum = self.telnet.read_eager()
+
+            if reply is None or checksum is None:
+                raise EOFError("None type response")
+
+            if len(reply) < 2 or len(checksum) < 2:
+                raise EOFError("To short response")
+
             return reply + checksum
-        except EOFError as e:
-            logger.error(f"Telnet error {e}")
-            # self.is_connected = False
+
         except BrokenPipeError as e:
-            logger.error(f"Telnet error {e}")
+            logger.warning(f"Telnet error {e}")
             self.is_connected = False
+            self.close()
+            time.sleep(0.1)
+            self.open()
+            logger.warning(f"Telnet tried to reconnect")
 
     async def send(self, out_buff: bytes) -> bytes:
         """
@@ -250,21 +266,18 @@ class LanClient:
         :param out_buff: 8 bit ascii encoded message string including STX, ETC and checksum
         :return: response message. 8-bit ascii encoding including STX, ETX and checksum
         """
+        if self.is_connected is False:
+            raise ComError("Client disconnected")
+
         async with self.lock:
             # rate limit
-            wait = self.min_wait - (time.time() - self.last_send)
-            if wait > 0.0:
-                await asyncio.sleep(wait)
-
-            loop = asyncio.get_running_loop()
-            in_buff = await loop.run_in_executor(None, self._blocking_send, out_buff)
+            wait_time = self.min_wait - (time.time() - self.last_send)
+            if wait_time > 0.0:
+                await asyncio.sleep(wait_time)
+            # loop = asyncio.get_running_loop()
+            # in_buff = await loop.run_in_executor(None, self._blocking_send, out_buff)
+            in_buff = self._blocking_send(out_buff)
             self.last_send = time.time()
-
-            if self.is_connected is False:
-                # Only start one reconnect thread
-                if self.reconnect_thread.is_alive() is False:
-                    self.reconnect_thread = Thread(target=self.reconnect, daemon=True)
-                    self.reconnect_thread.start()
 
         return in_buff
 
