@@ -303,3 +303,18 @@ async def test_high_level():
     unit = await ctrl.get_pressure_unit()
     value = await ctrl.read_pressure()
     logger.info(f"Pressure {value} {unit}")
+
+
+@pytest.mark.asyncio
+async def test_fan_on():
+
+    pause_time = 0.1
+
+    ctrl = TwisTorr74Driver(com_port='/dev/ttyUSB0', addr=0)
+    on_connect_called = False
+    await ctrl.connect(max_retries=1)
+    status = await ctrl.get_status()
+    assert status is PumpStatus.STOP
+    await ctrl.set_fan_config(0)  # ON
+    await asyncio.sleep(pause_time)
+    assert await ctrl.get_fan_config() == 0
