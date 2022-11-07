@@ -183,13 +183,16 @@ class SerialClient:
         :return: response message. 8-bit ascii encoding including STX, ETX and checksum
         """
         async with self.lock:
-            sent_bytes = await self.serial.write_async(out_buff)
-            # logger.debug(f"sent bytes {sent_bytes}")
+            try:
+                sent_bytes = await self.serial.write_async(out_buff)
+                # logger.debug(f"sent bytes {sent_bytes}")
 
-            # TODO add fault check
-            # TODO add timeout handling
-            in_buff = await self.serial.read_until_async(expected=b'/x03')
-            return in_buff
+                # TODO add fault check
+                # TODO add timeout handling
+                in_buff = await self.serial.read_until_async(expected=b'/x03')
+                return in_buff
+            except serial.serialutil.SerialException as e:
+                raise ComError(f"Serial exception in send. {e}")
 
     def close(self) -> None:
         """
