@@ -350,7 +350,7 @@ class AgilentDriver:
         :raises OutOfRange if the value expressed during a write command is not within the range value for the window.
         :raises WinDisabled if the window specified is Read Only or is temporarily disabled.
         """
-        if buff is None:
+        if buff is None or len(buff) < 3:
             raise EOFError("Buff is empty")
         end_pos = buff.find(b'\x03')
         if end_pos == -1:

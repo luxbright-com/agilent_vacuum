@@ -1,11 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="smoke11 vacuum" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
       <paths name="smoke11 vacuum">
         <serverdata>
           <mappings>
             <mapping deploy="/vacuum_interfaces" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="xhive@dev10.local:22">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/xhive/vacuum_interfaces" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
