@@ -192,6 +192,23 @@ class IpcMiniDriver(AgilentDriver):
         response = await self.send_request(I_MEASURED_CH1_CMD)
         return float(response)
 
+    async def get_current_protect(self) -> float:
+        """
+        Get current protect setting
+        :return: current limit in mA
+        """
+        response = await self.send_request(I_PROTECT_CH1_CMD)
+        return float(response) / 1000.0
+
+    async def set_current_protect(self, current: float) -> None:
+        """
+        Set current protect setting
+        :param current: [0.001 - 10] mA
+        :return: None
+        """
+        data = int(current*1000)
+        await self.send_request(I_PROTECT_CH1_CMD, write=True, data=data)
+
     async def set_autostart(self, enabled: bool = False) -> None:
         """
         Set autostart setting
@@ -298,6 +315,22 @@ class IpcMiniDriver(AgilentDriver):
         """
         response = await self.send_request(V_MEASURED_CH1_CMD)
         return int(response)
+
+    async def read_controller_temp(self) -> float:
+        """
+        Read controller internal temperature
+        :return:
+        """
+        response = await self.send_request(TEMPERATURE_CONTROLLER_CMD)
+        return float(response) / 10.0
+
+    async def read_power_temp(self) -> float:
+        """
+        Read controller power unit temperature
+        :return:
+        """
+        response = await self.send_request(TEMPERATURE_POWER_CMD)
+        return float(response) / 10.0
 
     async def start(self) -> None:
         """

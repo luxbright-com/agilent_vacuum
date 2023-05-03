@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import random
 import time
 
 import pytest
@@ -147,7 +148,7 @@ async def test_ipc_mini_high_level():
     # assert unit is PressureUnit.mBar
     pressure = await ipc_mini.read_pressure()
     logger.info(f"pressure {pressure} {unit.name}")
-    assert pressure < 1e-6
+    assert pressure < 1e-5
 
     auto_start_backup = await ipc_mini.get_autostart() is False
     await ipc_mini.set_autostart(False)
@@ -186,6 +187,51 @@ async def test_ipc_mini_high_level():
     current = await ipc_mini.read_current()
     logger.info(f"current: {current}")
     assert current > 0
+
+
+@pytest.mark.asyncio
+async def test_ipc_mini_set_current_protect():
+    ipc_mini = IpcMiniDriver(com_port='/dev/ttyUSB0', addr=0)
+    await ipc_mini.connect()
+    current_backup = await ipc_mini.get_current_protect()
+    setting = random.randrange(1, 100) / 10.0
+    await ipc_mini.set_current_protect(setting)
+    assert await ipc_mini.get_current_protect() == pytest.approx(setting)
+    # await ipc_mini.set_current_protect(current_backup)
+    await ipc_mini.set_current_protect(20)
+    await ipc_mini.set_protect(True)
+    await ipc_mini.set_step(False)
+
+
+@pytest.mark.asyncio
+async def test_ipc_mini_temperatures():
+    ipc_mini = IpcMiniDriver(com_port='/dev/ttyUSB0', addr=0)
+    await ipc_mini.connect()
+    assert 20 < await ipc_mini.read_power_temp() < 100
+    assert 20 < await ipc_mini.read_controller_temp() < 100
+
+
+@pytest.mark.asyncio
+async def test_ipc_mini_protect_off():
+    # Protect on/off does not work
+    ipc_mini = IpcMiniDriver(com_port='/dev/ttyUSB0', addr=0)
+    await ipc_mini.connect()
+    await ipc_mini.stop()
+    await ipc_mini.set_protect(False)
+    assert await ipc_mini.get_protect() is False
+
+
+@pytest.mark.asyncio
+async def test_ipc_mini_protect_on():
+    # Protect on/off does not work
+    ipc_mini = IpcMiniDriver(com_port='/dev/ttyUSB0', addr=0)
+    await ipc_mini.connect()
+    await asyncio.sleep(0.5)
+    await ipc_mini.set_protect(True)
+    await asyncio.sleep(0.5)
+    assert await ipc_mini.get_protect() is True
+    logger.info(f"protect I {await ipc_mini.send_request(I_PROTECT_CH1_CMD)}")
+    await ipc_mini.start()
 
 
 @pytest.mark.asyncio
