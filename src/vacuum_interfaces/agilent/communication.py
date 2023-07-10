@@ -300,13 +300,13 @@ class AgilentDriver:
     Base class for Agilent drivers
     """
 
-    def __init__(self, addr: int = 0, **kwargs):
+    def __init__(self, client: Union[LanClient, SerialClient, None], addr: int = 0, **kwargs):
         """
         Initialize driver
         :param addr: controller device address for RS485 communication (default 0)
         """
+        self.client = client
         self.addr = addr
-        self.client: Union[LanClient, SerialClient, None] = None
         self.is_connected: bool = False
         self._on_connect: list[callable] = []
         self._on_disconnect: list[callable] = []

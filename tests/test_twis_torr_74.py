@@ -2,11 +2,15 @@ import asyncio
 import pytest
 from vacuum_interfaces.agilent.twis_torr_74 import *
 
+COM_PORT = '/dev/ttyS0'
+ADDR = 1
+
 
 @pytest.mark.asyncio
 async def test_serial_request():
     # test via RS232
-    pump = TwisTorr74Driver(com_port='/dev/ttyUSB0', addr=0)
+    client = SerialClient(com_port=COM_PORT)
+    pump = TwisTorr74Driver(client, addr=ADDR)
     # ipc_mini.connect()
     response = await pump.send_request(STATUS_CMD, force=True)
     assert response.result_code is None
@@ -15,7 +19,7 @@ async def test_serial_request():
 @pytest.mark.asyncio
 async def test_send_basic_commands():
     # test via RS232. ONLY READ COMMANDS
-    ctrl = TwisTorr74Driver(com_port='/dev/ttyUSB0', addr=0)
+    ctrl = TwisTorr74Driver(com_port=COM_PORT, addr=ADDR)
     await ctrl.connect(max_retries=1)
 
     response = await ctrl.send_request(STATUS_CMD)
@@ -191,7 +195,8 @@ async def test_high_level():
         nonlocal on_connect_called
         on_connect_called = True
 
-    ctrl = TwisTorr74Driver(com_port='/dev/ttyUSB0', addr=0)
+    client = SerialClient(COM_PORT)
+    ctrl = TwisTorr74Driver(client, addr=ADDR)
     on_connect_called = False
     await ctrl.connect(max_retries=1)
     status = await ctrl.get_status()
@@ -307,10 +312,10 @@ async def test_high_level():
 
 @pytest.mark.asyncio
 async def test_fan_on():
-
     pause_time = 0.1
 
-    ctrl = TwisTorr74Driver(com_port='/dev/ttyUSB0', addr=0)
+    client = SerialClient(COM_PORT)
+    ctrl = TwisTorr74Driver(client, addr=ADDR)
     on_connect_called = False
     await ctrl.connect(max_retries=1)
     status = await ctrl.get_status()

@@ -6,7 +6,7 @@ from enum import IntEnum, IntFlag
 import logging
 from typing import Optional, Union
 
-from .communication import DataType, Command, SerialClient, Response, AgilentDriver, PressureUnit
+from .communication import DataType, Command, SerialClient, Response, AgilentDriver, PressureUnit, LanClient
 from .commands import *
 from .exceptions import *
 
@@ -142,9 +142,8 @@ class TwisTorr74Driver(AgilentDriver):
     """
     PRESSURE_UNITS = [PressureUnit.mBar, PressureUnit.Pa, PressureUnit.Torr]
 
-    def __init__(self, com_port: Optional[str] = None, addr: int = 0, **kwargs):
-        super().__init__(addr=addr, **kwargs)
-        self.client = SerialClient(com_port=com_port)
+    def __init__(self, client: Union[LanClient, SerialClient, None], addr: int = 0, **kwargs):
+        super().__init__(client, addr=addr, **kwargs)
 
     async def connect(self, max_retries: int = 1) -> None:
         """
