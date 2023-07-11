@@ -184,11 +184,7 @@ class SerialClient:
         """
         async with self.lock:
             try:
-                sent_bytes = await self.serial.write_async(out_buff)
-                # logger.debug(f"sent bytes {sent_bytes}")
-
-                # TODO add fault check
-                # TODO add timeout handling
+                await self.serial.write_async(out_buff)
                 in_buff = await self.serial.read_until_async(expected=b'/x03')
                 return in_buff
             except serial.serialutil.SerialException as e:
