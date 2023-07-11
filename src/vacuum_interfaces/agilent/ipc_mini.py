@@ -96,18 +96,12 @@ class IpcMiniDriver(AgilentDriver):
         retries = 0
         while self.is_connected is False:
             try:
-                if isinstance(self.client, LanClient):
-                    self.client.open()
-                    response = await self.send_request(CONTROLLER_MODEL_CMD, force=True)
-                    logger.info(f"IPC mini connected {self.client.host}:{self.client.port}")
-                else:
-                    # self.client.open()
-                    response = await self.send_request(STATUS_CMD, force=True)
-                    logger.info(f"IPC mini connected {self.client.port}")
+                # self.client.open()
+                response = await self.send_request(STATUS_CMD, force=True)
+                logger.info(f"IPC mini connected {self.client.port}")
                 self.is_connected = True
             except (OSError, EOFError, ComError) as e:
                 logger.debug(f"Failed to open {e}")
-                self.client.close()
                 if max_retries > 0:
                     retries += 1
                     if retries > max_retries:
