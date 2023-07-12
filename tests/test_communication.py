@@ -26,7 +26,7 @@ def test_validate_checksum():
 
 
 def test_parse_response():
-    driver = AgilentDriver()
+    driver = AgilentDriver(None)
     # incomplete response
     with pytest.raises(EOFError):
         test_str = b"\x02\x80\x15"

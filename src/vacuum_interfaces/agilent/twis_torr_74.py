@@ -12,9 +12,8 @@ from .exceptions import *
 
 logger = logging.getLogger('vacuum')
 
-
 # TODO implement all commands
-START_STOP_CMD = Command(win=0, writable=True, datatype=DataType.NUMERIC,
+START_STOP_CMD = Command(win=0, writable=True, datatype=DataType.LOGIC,
                          description="Start/Stop (in remote/ mode the window is read only)")
 REMOTE_CMD = Command(win=8, writable=True, datatype=DataType.LOGIC,
                      description="Mode, Remote or Serial configuration (default = True)")
@@ -59,7 +58,8 @@ R1_SET_POINT_THRESHOLD_CMD = Command(win=162, writable=True, datatype=DataType.N
                                                  "Valid if min. 101 = 4 Format X.X EsXX Where X = 0 to 9 s = + or -")
 PRESSURE_UNIT_CMD = Command(win=163, writable=True, datatype=DataType.NUMERIC,
                             description="Unit pressure 0=mBar 1=Pa 2=Torr")
-
+ENABLE_STOP_SPEED_READ_CMD = Command(win=167, writable=True, datatype=DataType.LOGIC,
+                                     description="Enable/Disable reading the pump speed after Stop command")
 R2_SET_POINT_TYP_CMD = Command(win=171, writable=True, datatype=DataType.NUMERIC,
                                description="R2 Set Point Type 0 = Freq 1 = Power 2 = Time 3 = Normal (default = 3) "
                                            "4 =Pressure (available only if the gauge is connected)")
@@ -298,6 +298,13 @@ class TwisTorr74Driver(AgilentDriver):
         logger.info(f"encode {enable} {cmd.encode(write=True, data=enable)}")
         await self.send_request(SOFT_START_CMD, write=True, data=enable)
 
+    async def enable_stop_speed_reading(self, enable: bool) -> None:
+        """
+        Stop speed reading Activates / deactivates the pump speed reading after Stop command
+        :return:
+        """
+        await self.send_request(ENABLE_STOP_SPEED_READ_CMD, write=True, data=enable)
+
     async def read_turbo_speed(self) -> float:
         """
         Read the turbo speed in RPM
@@ -388,6 +395,7 @@ class TwisTorr74Driver(AgilentDriver):
         Switch on Ion pump
         :return: None
         """
+        logger.info("Driver: Start Turbo Pump")
         await self.send_request(START_STOP_CMD, write=True, data=True)
 
     async def stop(self) -> None:
@@ -395,4 +403,5 @@ class TwisTorr74Driver(AgilentDriver):
         Switch off Ion pump
         :return:
         """
+        logger.info("Driver: Stop Turbo Pump")
         await self.send_request(START_STOP_CMD, write=True, data=False)

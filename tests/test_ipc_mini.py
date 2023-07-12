@@ -20,16 +20,18 @@ async def test_ipc_mini_serial():
     # ipc_mini.connect()
     response = await ipc_mini.send_request(STATUS_CMD, force=True)
     assert response.result_code is None
+    client.close()
 
 
 @pytest.mark.asyncio
 async def test_ipc_mini_lan():
     # test via RS232
     client = SerialClient(com_port=COM_PORT)
-    ipc_mini = IpcMiniDriver(host=client, addr=ADDR)
+    ipc_mini = IpcMiniDriver(client, addr=ADDR)
     await ipc_mini.connect(max_retries=1)
     response = await ipc_mini.send_request(STATUS_CMD)
     assert response.result_code is None
+    client.close()
 
 
 @pytest.mark.asyncio
