@@ -184,11 +184,7 @@ class SerialClient:
         """
         async with self.lock:
             try:
-                sent_bytes = await self.serial.write_async(out_buff)
-                # logger.debug(f"sent bytes {sent_bytes}")
-
-                # TODO add fault check
-                # TODO add timeout handling
+                await self.serial.write_async(out_buff)
                 in_buff = await self.serial.read_until_async(expected=b'/x03')
                 return in_buff
             except serial.serialutil.SerialException as e:
@@ -300,13 +296,13 @@ class AgilentDriver:
     Base class for Agilent drivers
     """
 
-    def __init__(self, addr: int = 0, **kwargs):
+    def __init__(self, client: Union[LanClient, SerialClient, None], addr: int = 0, **kwargs):
         """
         Initialize driver
         :param addr: controller device address for RS485 communication (default 0)
         """
+        self.client = client
         self.addr = addr
-        self.client: Union[LanClient, SerialClient, None] = None
         self.is_connected: bool = False
         self._on_connect: list[callable] = []
         self._on_disconnect: list[callable] = []

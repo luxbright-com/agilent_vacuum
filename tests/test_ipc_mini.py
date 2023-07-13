@@ -8,29 +8,37 @@ from vacuum_interfaces.agilent.ipc_mini import *
 
 logger = logging.getLogger("vacuum")
 
+COM_PORT = '/dev/ttyS0'
+ADDR = 2
+
 
 @pytest.mark.asyncio
 async def test_ipc_mini_serial():
     # test via RS232
-    ipc_mini = IpcMiniDriver(com_port='/dev/ttyUSB0', addr=0)
+    client = SerialClient(com_port=COM_PORT)
+    ipc_mini = IpcMiniDriver(client, addr=ADDR)
     # ipc_mini.connect()
     response = await ipc_mini.send_request(STATUS_CMD, force=True)
     assert response.result_code is None
+    client.close()
 
 
 @pytest.mark.asyncio
 async def test_ipc_mini_lan():
     # test via RS232
-    ipc_mini = IpcMiniDriver(host="192.168.1.230", addr=0)
+    client = SerialClient(com_port=COM_PORT)
+    ipc_mini = IpcMiniDriver(client, addr=ADDR)
     await ipc_mini.connect(max_retries=1)
     response = await ipc_mini.send_request(STATUS_CMD)
     assert response.result_code is None
+    client.close()
 
 
 @pytest.mark.asyncio
 async def test_ipc_mini_basic_commands():
     # test via LAN. ONLY READ COMMANDS
-    ipc_mini = IpcMiniDriver(com_port='/dev/ttyUSB0', addr=0)
+    client = SerialClient(com_port=COM_PORT)
+    ipc_mini = IpcMiniDriver(client, addr=ADDR)
     await ipc_mini.connect(max_retries=1)
     status = await ipc_mini.get_status()
     logger.info(f"pump status: {status.name}")
@@ -127,7 +135,8 @@ async def test_ipc_mini_high_level():
         on_connect_called = True
 
     on_connect_called = False
-    ipc_mini = IpcMiniDriver(com_port='/dev/ttyUSB0', addr=0)
+    client = SerialClient(com_port=COM_PORT)
+    ipc_mini = IpcMiniDriver(client, addr=ADDR)
     ipc_mini.on_connect = on_connect_cb
     await ipc_mini.connect()
     assert on_connect_called is True
@@ -191,7 +200,8 @@ async def test_ipc_mini_high_level():
 
 @pytest.mark.asyncio
 async def test_ipc_mini_set_current_protect():
-    ipc_mini = IpcMiniDriver(com_port='/dev/ttyUSB0', addr=0)
+    client = SerialClient(com_port=COM_PORT)
+    ipc_mini = IpcMiniDriver(client, addr=ADDR)
     await ipc_mini.connect()
     current_backup = await ipc_mini.get_current_protect()
     setting = random.randrange(1, 100) / 10.0
@@ -205,7 +215,8 @@ async def test_ipc_mini_set_current_protect():
 
 @pytest.mark.asyncio
 async def test_ipc_mini_temperatures():
-    ipc_mini = IpcMiniDriver(com_port='/dev/ttyUSB0', addr=0)
+    client = SerialClient(com_port=COM_PORT)
+    ipc_mini = IpcMiniDriver(client, addr=ADDR)
     await ipc_mini.connect()
     assert 20 < await ipc_mini.read_power_temp() < 100
     assert 20 < await ipc_mini.read_controller_temp() < 100
@@ -214,7 +225,8 @@ async def test_ipc_mini_temperatures():
 @pytest.mark.asyncio
 async def test_ipc_mini_protect_off():
     # Protect on/off does not work
-    ipc_mini = IpcMiniDriver(com_port='/dev/ttyUSB0', addr=0)
+    client = SerialClient(com_port=COM_PORT)
+    ipc_mini = IpcMiniDriver(client, addr=ADDR)
     await ipc_mini.connect()
     await ipc_mini.stop()
     await ipc_mini.set_protect(False)
@@ -224,7 +236,8 @@ async def test_ipc_mini_protect_off():
 @pytest.mark.asyncio
 async def test_ipc_mini_protect_on():
     # Protect on/off does not work
-    ipc_mini = IpcMiniDriver(com_port='/dev/ttyUSB0', addr=0)
+    client = SerialClient(com_port=COM_PORT)
+    ipc_mini = IpcMiniDriver(client, addr=ADDR)
     await ipc_mini.connect()
     await asyncio.sleep(0.5)
     await ipc_mini.set_protect(True)
@@ -236,7 +249,8 @@ async def test_ipc_mini_protect_on():
 
 @pytest.mark.asyncio
 async def test_rate_limit():
-    ipc_mini = IpcMiniDriver(host="192.168.1.230")
+    client = SerialClient(com_port=COM_PORT)
+    ipc_mini = IpcMiniDriver(client, addr=ADDR)
     await ipc_mini.connect()
     start = time.time()
     for i in range(100):
@@ -246,13 +260,15 @@ async def test_rate_limit():
 
 @pytest.mark.asyncio
 async def test_rate_limit():
-    ipc_mini = IpcMiniDriver(host="192.168.1.230")
+    client = SerialClient(com_port=COM_PORT)
+    ipc_mini = IpcMiniDriver(client, addr=ADDR)
     await ipc_mini.connect(max_retries=0)
 
 
 @pytest.mark.asyncio
 async def test_long_run():
-    ipc_mini = IpcMiniDriver(com_port='/dev/ttyUSB0', addr=0)
+    client = SerialClient(com_port=COM_PORT)
+    ipc_mini = IpcMiniDriver(client, addr=ADDR)
     await ipc_mini.connect()
     start = time.time()
     while ipc_mini.is_connected is True:

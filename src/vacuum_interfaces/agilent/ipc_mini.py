@@ -78,8 +78,7 @@ class IpcMiniDriver(AgilentDriver):
     """
     PRESSURE_UNITS = [PressureUnit.Torr, PressureUnit.mBar, PressureUnit.Pa]
 
-    def __init__(self, com_port: Optional[str] = None, host: Optional[str] = None, port: int = 23,
-                 addr: int = 0, **kwargs):
+    def __init__(self, client: Union[LanClient, SerialClient, None], addr: int = 0, **kwargs):
         """
         Initialize pump driver
         :param com_port: RS232 or RS485 device string
@@ -87,11 +86,7 @@ class IpcMiniDriver(AgilentDriver):
         :param port: LAN interface port (default 23)
         :param addr: controller device address for RS485 communication (default 0)
         """
-        super().__init__(addr=addr)
-        if isinstance(com_port, str):
-            self.client = SerialClient(com_port=com_port)
-        elif isinstance(host, str):
-            self.client = LanClient(host=host, port=port)
+        super().__init__(client, addr=addr)
 
     async def connect(self, max_retries: int = 1) -> None:
         """
@@ -101,18 +96,12 @@ class IpcMiniDriver(AgilentDriver):
         retries = 0
         while self.is_connected is False:
             try:
-                if isinstance(self.client, LanClient):
-                    self.client.open()
-                    response = await self.send_request(CONTROLLER_MODEL_CMD, force=True)
-                    logger.info(f"IPC mini connected {self.client.host}:{self.client.port}")
-                else:
-                    # self.client.open()
-                    response = await self.send_request(STATUS_CMD, force=True)
-                    logger.info(f"IPC mini connected {self.client.port}")
+                # self.client.open()
+                response = await self.send_request(STATUS_CMD, force=True)
+                logger.info(f"IPC mini connected {self.client.port}")
                 self.is_connected = True
             except (OSError, EOFError, ComError) as e:
                 logger.debug(f"Failed to open {e}")
-                self.client.close()
                 if max_retries > 0:
                     retries += 1
                     if retries > max_retries:

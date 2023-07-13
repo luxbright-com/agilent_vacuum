@@ -2,20 +2,39 @@ import asyncio
 import pytest
 from vacuum_interfaces.agilent.twis_torr_74 import *
 
+COM_PORT = '/dev/ttyUSB0'
+ADDR = 1
+
 
 @pytest.mark.asyncio
 async def test_serial_request():
     # test via RS232
-    pump = TwisTorr74Driver(com_port='/dev/ttyUSB0', addr=0)
+    client = SerialClient(com_port=COM_PORT)
+    pump = TwisTorr74Driver(client, addr=ADDR)
     # ipc_mini.connect()
     response = await pump.send_request(STATUS_CMD, force=True)
     assert response.result_code is None
+    client.close()
+
+
+@pytest.mark.asyncio
+async def test_repeated_serial_request():
+    # test via RS232
+    client = SerialClient(com_port=COM_PORT)
+    pump = TwisTorr74Driver(client, addr=ADDR)
+    for i in range(10):
+        logger.info(f"Repeated send {i}")
+        response = await pump.send_request(STATUS_CMD, force=True)
+        assert response.result_code is None
+        await asyncio.sleep(0.2)
+    client.close()
 
 
 @pytest.mark.asyncio
 async def test_send_basic_commands():
     # test via RS232. ONLY READ COMMANDS
-    ctrl = TwisTorr74Driver(com_port='/dev/ttyUSB0', addr=0)
+    client = SerialClient(com_port=COM_PORT)
+    ctrl = TwisTorr74Driver(client, addr=ADDR)
     await ctrl.connect(max_retries=1)
 
     response = await ctrl.send_request(STATUS_CMD)
@@ -179,6 +198,7 @@ async def test_send_basic_commands():
     response = await ctrl.send_request(GAUGE_POWER_CMD)
     logger.debug(f"GAUGE_POWER_CMD {response.data}")
     # assert int(response) == 0
+    client.close()
 
 
 @pytest.mark.asyncio
@@ -191,7 +211,8 @@ async def test_high_level():
         nonlocal on_connect_called
         on_connect_called = True
 
-    ctrl = TwisTorr74Driver(com_port='/dev/ttyUSB0', addr=0)
+    client = SerialClient(COM_PORT)
+    ctrl = TwisTorr74Driver(client, addr=ADDR)
     on_connect_called = False
     await ctrl.connect(max_retries=1)
     status = await ctrl.get_status()
@@ -303,18 +324,41 @@ async def test_high_level():
     unit = await ctrl.get_pressure_unit()
     value = await ctrl.read_pressure()
     logger.info(f"Pressure {value} {unit}")
+    client.close()
 
 
 @pytest.mark.asyncio
 async def test_fan_on():
-
     pause_time = 0.1
 
-    ctrl = TwisTorr74Driver(com_port='/dev/ttyUSB0', addr=0)
+    client = SerialClient(COM_PORT)
+    ctrl = TwisTorr74Driver(client, addr=ADDR)
     on_connect_called = False
     await ctrl.connect(max_retries=1)
     status = await ctrl.get_status()
     assert status is PumpStatus.STOP
-    await ctrl.set_fan_config(0)  # ON
+    await ctrl.set_fan_config(2)  # ON
     await asyncio.sleep(pause_time)
-    assert await ctrl.get_fan_config() == 0
+    assert await ctrl.get_fan_config() == 2
+    await ctrl.set_fan(True)
+    assert await ctrl.get_fan() is True
+    client.close()
+
+
+@pytest.mark.asyncio
+async def test_fan_off():
+    pause_time = 0.1
+
+    client = SerialClient(COM_PORT)
+    ctrl = TwisTorr74Driver(client, addr=ADDR)
+    on_connect_called = False
+    await ctrl.connect(max_retries=1)
+    status = await ctrl.get_status()
+    assert status is PumpStatus.STOP
+    await ctrl.set_fan_config(2)  # ON
+    await asyncio.sleep(pause_time)
+    assert await ctrl.get_fan_config() == 2
+    await ctrl.set_fan(False)
+    assert await ctrl.get_fan() is False
+    await ctrl.set_fan_config(1)  # AUTO
+    client.close()
