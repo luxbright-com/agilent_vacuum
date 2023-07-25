@@ -86,7 +86,7 @@ class IpcMiniDriver(AgilentDriver):
         :param port: LAN interface port (default 23)
         :param addr: controller device address for RS485 communication (default 0)
         """
-        super().__init__(client, addr=addr)
+        super().__init__(client, addr=addr, **kwargs)
 
     async def connect(self, max_retries: int = 1) -> None:
         """

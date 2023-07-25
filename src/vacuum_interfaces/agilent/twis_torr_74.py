@@ -151,11 +151,24 @@ class TwisTorr74Driver(AgilentDriver):
         :return:
         """
         # TODO add connect fail check and retry
-        self.is_connected = False
-        # this will raise an exception if send_request fails
-        response = await self.send_request(STATUS_CMD, force=True)
-        self.is_connected = True
+        retries = 0
+        while self.is_connected is False:
+            try:
+                response = await self.send_request(STATUS_CMD, force=True)
+                self.is_connected = True
 
+            except (OSError, EOFError, ComError) as e:
+                logger.debug(f"Failed to open {e}")
+                if max_retries > 0:
+                    retries += 1
+                    if retries > max_retries:
+                        logger.error(f"Failed to connect to TwissTorr74")
+                        raise ComError(f"Failed to connect to TwissTorr74")
+
+                await asyncio.sleep(0.5)
+
+        # TODO add readout of model and serial number
+        logger.info(f"Connected to TwissTorr74 controller")
         status = await self.get_status()
         errors = await self.get_error()
         logger.info(f"status:{status.name} errors: {errors.name}")
