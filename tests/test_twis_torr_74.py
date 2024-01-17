@@ -119,7 +119,7 @@ async def test_send_basic_commands():
     logger.debug(f"PRESSURE_UNIT_CMD {response.data}")
     # assert int(response) == 0
 
-    response = await ctrl.send_request(R2_SET_POINT_TYP_CMD)
+    response = await ctrl.send_request(R2_SET_POINT_TYPE_CMD)
     logger.debug(f"R2_SET_POINT_TYP_CMD {response.data}")
     # assert int(response) == 3
 
@@ -139,7 +139,7 @@ async def test_send_basic_commands():
     logger.debug(f"R2_SET_POINT_HYSTERESIS_CMD {response.data}")
     # assert int(response) == 2
 
-    response = await ctrl.send_request(R2_SET_POINT_THRESHOLD_CMD)
+    response = await ctrl.send_request(R2_SET_POINT_PRESSURE_VALUE_CMD)
     logger.debug(f"R2_SET_POINT_THRESHOLD_CMD {response.data}")
     # assert int(response) == 2
 
