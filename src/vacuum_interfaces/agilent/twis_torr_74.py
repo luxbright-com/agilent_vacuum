@@ -19,10 +19,25 @@ REMOTE_CMD = Command(win=8, writable=True, datatype=DataType.LOGIC,
                      description="Mode, Remote or Serial configuration (default = True)")
 SOFT_START_CMD = Command(win=100, writable=True, datatype=DataType.LOGIC,
                          description="Soft Start (write only in Stop condition, default = False)")
-# command 101 to 105 (set point) not implemented
-
+R1_SET_POINT_TYPE_CMD = Command(win=101, writable=True, datatype=DataType.NUMERIC,
+                            description="R1 Set Point type 0 = Frequency 1 = Power 2 = Time 3 = Normal (default = 3)"
+                                        "4 =Pressure (available only if the gauge is connected)")
+R1_SET_POINT_VALUE_CMD = Command(win=102, writable=True, datatype=DataType.NUMERIC,
+                                 description="R1 Set Point threshold value (expressed in Hz, W or s)"
+                                             "(default = 900) Note, use WIN 162 for pressure")
+R1_SET_POINT_DELAY_CMD = Command(win=103, writable=True, datatype=DataType.NUMERIC,
+                             description="Set Point delay: time between the pump start and the set point check"
+                                         "(seconds) 0 to 99999 (default = 0)")
+R1_SET_POINT_ACTIVATION_TYPE_CMD = Command(win=104, writable=True, datatype=DataType.LOGIC,
+                                       description='Set Point signal activation type: the signal can be'
+                                                   '"high level active" or "low level active"'
+                                                   '0 = high level active 1 = low level active (default = 0)')
+R1_SET_POINT_HYSTERESIS_CMD = Command(win=105, writable=True, datatype=DataType.NUMERIC,
+                                  description="Set point hysteresis (in % of value) 0 to 100 (default = 2)")
 ACTIVE_STOP_CMD = Command(win=107, writable=True, datatype=DataType.LOGIC,
                           description="Active Stop (write only in stop) 0 = NO 1 = YES")
+WATER_COOLING_CMD = Command(win=106, writable=True, datatype=DataType.LOGIC,
+                            description="Water cooling 0 = NO 1 = YES")
 # 108 baud rate defined in common command list
 VENT_OPEN_CMD = Command(win=122, writable=True, datatype=DataType.LOGIC,
                         description="Set vent valve on/off (on = closed) On = 1 Off = 0 (default = 1)")
@@ -53,15 +68,15 @@ POWER_LIMIT_APPLIED_CMD = Command(win=155, writable=False, datatype=DataType.NUM
                                   description="Power limit applied Read the maximum power deliverable to the pump watt")
 GAS_LOAD_TYPE_CMD = Command(win=157, writable=True, datatype=DataType.NUMERIC,
                             description="Gas load type. Select the gas load to the pump 0 = N2 1 = Argon")
-R1_SET_POINT_THRESHOLD_CMD = Command(win=162, writable=True, datatype=DataType.NUMERIC,
-                                     description="R1 Set Point Pressure Threshold"
+R1_SET_POINT_PRESSURE_VALUE_CMD = Command(win=162, writable=True, datatype=DataType.NUMERIC,
+                                          description="R1 Set Point Pressure Threshold"
                                                  "Valid if min. 101 = 4 Format X.X EsXX Where X = 0 to 9 s = + or -")
 PRESSURE_UNIT_CMD = Command(win=163, writable=True, datatype=DataType.NUMERIC,
                             description="Unit pressure 0=mBar 1=Pa 2=Torr")
 ENABLE_STOP_SPEED_READ_CMD = Command(win=167, writable=True, datatype=DataType.LOGIC,
                                      description="Enable/Disable reading the pump speed after Stop command")
-R2_SET_POINT_TYP_CMD = Command(win=171, writable=True, datatype=DataType.NUMERIC,
-                               description="R2 Set Point Type 0 = Freq 1 = Power 2 = Time 3 = Normal (default = 3) "
+R2_SET_POINT_TYPE_CMD = Command(win=171, writable=True, datatype=DataType.NUMERIC,
+                                description="R2 Set Point Type 0 = Freq 1 = Power 2 = Time 3 = Normal (default = 3) "
                                            "4 =Pressure (available only if the gauge is connected)")
 R2_SET_POINT_VALUE_CMD = Command(win=172, writable=True, datatype=DataType.NUMERIC,
                                  description="R2 Set Point Value (Hz, W, s)")
@@ -72,8 +87,8 @@ R2_SET_POINT_SIGNAL_TYPE_CMD = Command(win=174, writable=True, datatype=DataType
                                                    "False = high level active, True = low level active")
 R2_SET_POINT_HYSTERESIS_CMD = Command(win=175, writable=True, datatype=DataType.NUMERIC,
                                       description="R2 Set front Hysteresis (in % of R2 Valve)")
-R2_SET_POINT_THRESHOLD_CMD = Command(win=176, writable=True, datatype=DataType.NUMERIC,
-                                     description="R2 Set Point Pressure Threshold Valid if win 171 = 4"
+R2_SET_POINT_PRESSURE_VALUE_CMD = Command(win=176, writable=True, datatype=DataType.NUMERIC,
+                                          description="R2 Set Point Pressure Threshold Valid if win 171 = 4"
                                                  "Format X.X EsXX Where: X= 0 to 9 s = + or -")
 START_OUTPUT_MODE_CMD = Command(win=177, writable=True, datatype=DataType.LOGIC,
                                 description="Start Output Mode"

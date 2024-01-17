@@ -184,6 +184,7 @@ class SerialClient:
         """
         async with self.lock:
             try:
+                self.serial.reset_input_buffer()
                 await self.serial.write_async(out_buff)
                 in_buff = await self.serial.read_until_async(expected=b'/x03')
                 return in_buff
@@ -403,12 +404,16 @@ class AgilentDriver:
         :param data: data to send
         :param write: read/write command
         :param force: force a send command when self.is_connected is False
+        :raise ComError if communication with Pump Controller fails.
         :return: A parsed response encoded as a Response instance
         """
         if self.is_connected or force:
-            in_buff = await self.client.send(command.encode(data=data, addr=self.addr, write=write))
-            # logger.debug(f"response_str {in_buff}")
-            return self.parse_response(in_buff)
+            try:
+                in_buff = await self.client.send(command.encode(data=data, addr=self.addr, write=write))
+                # logger.debug(f"response_str {in_buff}")
+                return self.parse_response(in_buff)
+            except EOFError as e:
+                raise ComError(f"Failed to execute command. {e}")
         else:
             raise ComError("Pump controller is not connected.")
 
