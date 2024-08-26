@@ -103,15 +103,23 @@ class Command:
             raise DataTypeError("data must be bool or int type")
 
     @staticmethod
-    def num_str(data: Union[int, str]) -> str:
-        if isinstance(data, int):
-            return f"{data:06}"
-        elif isinstance(data, str):
-            return data
-        else:
-            raise DataTypeError("data must be int or str type")
+    def num_str(data: int | str | float) -> str:
+        """
+        Encode numeric data as string
+        :param data: data value to encode
+        :return:
+        """
+        match data:
+            case int():
+                return f"{data:06}"
+            case float():
+                return f"{data:.1E}"
+            case str():
+                return data
+            case _:
+                raise DataTypeError("data must be int, float or str type")
 
-    def encode(self, data: Union[bool, int, str] = None, addr: int = 0, write: bool = False) -> bytearray:
+    def encode(self, data: Union[bool, int, str, float] = None, addr: int = 0, write: bool = False) -> bytearray:
         """
         Encode message string including STX, ETX and checksum
         :param data: optional data to send
@@ -154,6 +162,7 @@ class SerialClient:
     """
     RS232 and RS485 client for communication with Pump Controllers
     """
+
     def __init__(self, com_port: str, baudrate: int = 9600, timeout: float = 0.1):
         """
         Initialize
@@ -208,14 +217,15 @@ class LanClient:
     Lan client for communication with pump controllers.
     Uses blocking telnet as socket.
     """
+
     def __init__(self, host: str, port: int = 23,
                  timeout: float = 0.5, rate_limit: int = 10):
         self.host = host
         self.port = port
         self.timeout = timeout
-        self.lock = asyncio.Lock()   # restrict to one reply request at a time
+        self.lock = asyncio.Lock()  # restrict to one reply request at a time
         self.telnet = Telnet()
-        self.min_wait = 1.0/rate_limit
+        self.min_wait = 1.0 / rate_limit
         self.last_send = time.time()
         self.is_connected = False
         self.reconnect_thread = Thread(target=self.reconnect, daemon=True)
@@ -399,7 +409,7 @@ class AgilentDriver:
     async def send_request(self, command: Command, data: Union[bool, int, str] = None, write: bool = False,
                            force: bool = False) -> Response:
         """
-        Send request to controller and return a parsed response instance.
+        Send request to the controller and return a parsed response instance.
         :param command: Command instance
         :param data: data to send
         :param write: read/write command
@@ -441,4 +451,3 @@ def validate_checksum(message: bytes) -> bool:
     """
     checksum = int(message[-2:], 16)
     return calc_checksum(message[0:-2]) == checksum
-

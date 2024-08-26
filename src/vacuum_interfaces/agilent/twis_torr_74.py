@@ -2,9 +2,10 @@
 Interface to Agilent TwisTorr 74 FS controller
 """
 import asyncio
+from collections import namedtuple
 from enum import IntEnum, IntFlag
 import logging
-from typing import Optional, Union
+from typing import Optional, Union, NamedTuple
 
 from .communication import DataType, Command, SerialClient, Response, AgilentDriver, PressureUnit, LanClient
 from .commands import *
@@ -20,20 +21,20 @@ REMOTE_CMD = Command(win=8, writable=True, datatype=DataType.LOGIC,
 SOFT_START_CMD = Command(win=100, writable=True, datatype=DataType.LOGIC,
                          description="Soft Start (write only in Stop condition, default = False)")
 R1_SET_POINT_TYPE_CMD = Command(win=101, writable=True, datatype=DataType.NUMERIC,
-                            description="R1 Set Point type 0 = Frequency 1 = Power 2 = Time 3 = Normal (default = 3)"
-                                        "4 =Pressure (available only if the gauge is connected)")
+                                description="R1 Set Point type 0 = Frequency 1 = Power 2 = Time 3 = Normal (default = 3)"
+                                            "4 =Pressure (available only if the gauge is connected)")
 R1_SET_POINT_VALUE_CMD = Command(win=102, writable=True, datatype=DataType.NUMERIC,
                                  description="R1 Set Point threshold value (expressed in Hz, W or s)"
                                              "(default = 900) Note, use WIN 162 for pressure")
 R1_SET_POINT_DELAY_CMD = Command(win=103, writable=True, datatype=DataType.NUMERIC,
-                             description="Set Point delay: time between the pump start and the set point check"
-                                         "(seconds) 0 to 99999 (default = 0)")
+                                 description="Set Point delay: time between the pump start and the set point check"
+                                             "(seconds) 0 to 99999 (default = 0)")
 R1_SET_POINT_ACTIVATION_TYPE_CMD = Command(win=104, writable=True, datatype=DataType.LOGIC,
-                                       description='Set Point signal activation type: the signal can be'
-                                                   '"high level active" or "low level active"'
-                                                   '0 = high level active 1 = low level active (default = 0)')
+                                           description='Set Point signal activation type: the signal can be'
+                                                       '"high level active" or "low level active"'
+                                                       '0 = high level active 1 = low level active (default = 0)')
 R1_SET_POINT_HYSTERESIS_CMD = Command(win=105, writable=True, datatype=DataType.NUMERIC,
-                                  description="Set point hysteresis (in % of value) 0 to 100 (default = 2)")
+                                      description="Set point hysteresis (in % of value) 0 to 100 (default = 2)")
 ACTIVE_STOP_CMD = Command(win=107, writable=True, datatype=DataType.LOGIC,
                           description="Active Stop (write only in stop) 0 = NO 1 = YES")
 WATER_COOLING_CMD = Command(win=106, writable=True, datatype=DataType.LOGIC,
@@ -70,14 +71,14 @@ GAS_LOAD_TYPE_CMD = Command(win=157, writable=True, datatype=DataType.NUMERIC,
                             description="Gas load type. Select the gas load to the pump 0 = N2 1 = Argon")
 R1_SET_POINT_PRESSURE_VALUE_CMD = Command(win=162, writable=True, datatype=DataType.NUMERIC,
                                           description="R1 Set Point Pressure Threshold"
-                                                 "Valid if min. 101 = 4 Format X.X EsXX Where X = 0 to 9 s = + or -")
+                                                      "Valid if min. 101 = 4 Format X.X EsXX Where X = 0 to 9 s = + or -")
 PRESSURE_UNIT_CMD = Command(win=163, writable=True, datatype=DataType.NUMERIC,
                             description="Unit pressure 0=mBar 1=Pa 2=Torr")
 ENABLE_STOP_SPEED_READ_CMD = Command(win=167, writable=True, datatype=DataType.LOGIC,
                                      description="Enable/Disable reading the pump speed after Stop command")
 R2_SET_POINT_TYPE_CMD = Command(win=171, writable=True, datatype=DataType.NUMERIC,
                                 description="R2 Set Point Type 0 = Freq 1 = Power 2 = Time 3 = Normal (default = 3) "
-                                           "4 =Pressure (available only if the gauge is connected)")
+                                            "4 =Pressure (available only if the gauge is connected)")
 R2_SET_POINT_VALUE_CMD = Command(win=172, writable=True, datatype=DataType.NUMERIC,
                                  description="R2 Set Point Value (Hz, W, s)")
 R2_SET_POINT_MASK_CMD = Command(win=173, writable=True, datatype=DataType.NUMERIC,
@@ -89,7 +90,7 @@ R2_SET_POINT_HYSTERESIS_CMD = Command(win=175, writable=True, datatype=DataType.
                                       description="R2 Set front Hysteresis (in % of R2 Valve)")
 R2_SET_POINT_PRESSURE_VALUE_CMD = Command(win=176, writable=True, datatype=DataType.NUMERIC,
                                           description="R2 Set Point Pressure Threshold Valid if win 171 = 4"
-                                                 "Format X.X EsXX Where: X= 0 to 9 s = + or -")
+                                                      "Format X.X EsXX Where: X= 0 to 9 s = + or -")
 START_OUTPUT_MODE_CMD = Command(win=177, writable=True, datatype=DataType.LOGIC,
                                 description="Start Output Mode"
                                             "False = Starting (Output ON only with pump Status = Starting)"
@@ -149,6 +150,28 @@ class PumpErrorCode(IntFlag):
     OVERVOLTAGE = 0x20
     SHORT_CIRCUIT = 0x40
     TOO_HIGH_LOAD = 0x80
+
+
+class SetpointType(IntEnum):
+    """
+    R1 and R1 setpoint types.
+    """
+    FREQ = 0
+    POWER = 1
+    TIME = 2
+    NORMAL = 3
+    PRESSURE = 4
+
+
+class SetpointTuple(NamedTuple):
+    """
+    R1 and R2 setpoint tuple.
+    """
+    point_type: SetpointType
+    value: float | int
+    delay: int
+    active_high: bool
+    hysteresis: int
 
 
 class TwisTorr74Driver(AgilentDriver):
@@ -433,3 +456,121 @@ class TwisTorr74Driver(AgilentDriver):
         """
         logger.info("Driver: Stop Turbo Pump")
         await self.send_request(START_STOP_CMD, write=True, data=False)
+
+    async def get_setpoint(self, setpoint_num: int) -> SetpointTuple:
+        match setpoint_num:
+            case 1:
+                response = await self.send_request(R1_SET_POINT_TYPE_CMD)
+                s_type = SetpointType(int(response))
+                response = await self.send_request(R1_SET_POINT_HYSTERESIS_CMD)
+                s_hysteresis = int(response)
+                response = await self.send_request(R1_SET_POINT_DELAY_CMD)
+                s_delay = int(response)
+                response = await self.send_request(R1_SET_POINT_ACTIVATION_TYPE_CMD)
+                s_activation_high = bool(response)
+                if s_type == SetpointType.PRESSURE:
+                    response = await self.send_request(R1_SET_POINT_PRESSURE_VALUE_CMD)
+                    s_value = float(response)
+                else:
+                    response = await self.send_request(R1_SET_POINT_VALUE_CMD)
+                    s_value = int(response)
+                return SetpointTuple(
+                    point_type=s_type,
+                    value=s_value,
+                    delay=s_delay,
+                    hysteresis=s_hysteresis,
+                    active_high=s_activation_high
+                )
+
+            case 2:
+                response = await self.send_request(R2_SET_POINT_TYPE_CMD)
+                s_type = SetpointType(int(response))
+                response = await self.send_request(R2_SET_POINT_HYSTERESIS_CMD)
+                s_hysteresis = int(response)
+                response = await self.send_request(R2_SET_POINT_MASK_CMD)
+                s_delay = int(response)
+                response = await self.send_request(R2_SET_POINT_SIGNAL_TYPE_CMD)
+                s_activation_high = bool(response)
+                if s_type == SetpointType.PRESSURE:
+                    response = await self.send_request(R2_SET_POINT_PRESSURE_VALUE_CMD)
+                    s_value = float(response)
+                else:
+                    response = await self.send_request(R2_SET_POINT_VALUE_CMD)
+                    s_value = int(response)
+                return SetpointTuple(
+                    point_type=s_type,
+                    value=s_value,
+                    delay=s_delay,
+                    hysteresis=s_hysteresis,
+                    active_high=s_activation_high
+                )
+
+            case _:
+                raise UnknownWindow("Setpoint number must be 1 or 2")
+
+    async def set_setpoint(
+            self,
+            setpoint_num: int,
+            setpoint_tuple: SetpointTuple | None = None,
+            point_type: SetpointType | None = None,
+            value: int | float | None = None,
+            delay: int | None = None,
+            active_high: bool | None = None,
+            hysteresis: int | None = None,
+    ) -> None:
+        """
+        Configure the R1 setpoint output.
+        :param setpoint_num: 1 for R1 or 2 for R2
+        :param setpoint_tuple: Setpoint tuple as alternative parameter.
+        :param point_type: FREQ, POWER, TIME, NORMAL (default) or PRESSURE.
+        :param value: Setpoint value.
+        :param delay: Time between the pump start and the set point check (seconds) 0 to 99999 (default = 0).
+        :param active_high: Signal active state (low or high).
+        :param hysteresis: Hysteresis in persent 0-100.
+        :return: None
+        """
+        if isinstance(setpoint_tuple, SetpointTuple):
+            point_type = setpoint_tuple.point_type
+            value = setpoint_tuple.value
+            delay = setpoint_tuple.delay
+            active_high = setpoint_tuple.active_high
+            hysteresis = setpoint_tuple.hysteresis
+
+        if point_type is None:
+            raise UnknownWindow("Setpoint type must be defined")
+
+        match setpoint_num:
+            case 1:
+                await self.send_request(R1_SET_POINT_TYPE_CMD, write=True, data=point_type.value)
+
+                if value is not None:
+                    if point_type is SetpointType.PRESSURE:
+                        await self.send_request(R1_SET_POINT_PRESSURE_VALUE_CMD, write=True, data=value)
+                    else:
+                        await self.send_request(R1_SET_POINT_VALUE_CMD, write=True, data=int(value))
+
+                if isinstance(delay, int):
+                    await self.send_request(R1_SET_POINT_DELAY_CMD, write=True, data=delay)
+                if isinstance(active_high, bool):
+                    await self.send_request(R1_SET_POINT_ACTIVATION_TYPE_CMD, write=True, data=active_high)
+                if isinstance(hysteresis, int):
+                    await self.send_request(R1_SET_POINT_HYSTERESIS_CMD, write=True, data=hysteresis)
+
+            case 2:
+                await self.send_request(R2_SET_POINT_TYPE_CMD, write=True, data=point_type.value)
+
+                if value is not None:
+                    if point_type is SetpointType.PRESSURE:
+                        await self.send_request(R2_SET_POINT_PRESSURE_VALUE_CMD, write=True, data=value)
+                    else:
+                        await self.send_request(R2_SET_POINT_VALUE_CMD, write=True, data=int(value))
+
+                if isinstance(delay, int):
+                    await self.send_request(R2_SET_POINT_MASK_CMD, write=True, data=delay)
+                if isinstance(active_high, bool):
+                    await self.send_request(R2_SET_POINT_SIGNAL_TYPE_CMD, write=True, data=active_high)
+                if isinstance(hysteresis, int):
+                    await self.send_request(R2_SET_POINT_HYSTERESIS_CMD, write=True, data=hysteresis)
+
+            case _:
+                raise UnknownWindow("Setpoint number must be 1 or 2")

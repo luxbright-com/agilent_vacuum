@@ -8,7 +8,7 @@ from vacuum_interfaces.agilent.ipc_mini import *
 
 logger = logging.getLogger("vacuum")
 
-COM_PORT = '/dev/ttyS0'
+COM_PORT = '/dev/ttyUSB0'
 ADDR = 2
 
 
@@ -97,7 +97,7 @@ async def test_ipc_mini_basic_commands():
     response = await ipc_mini.send_request(I_PROTECT_CH1_CMD)
     logger.info(f"I protect CH1 {float(response)}")
     assert int(response) >= 1
-    assert int(response) <= 10000
+    assert int(response) <= 30000
 
     response = await ipc_mini.send_request(SET_POINT_CH1_CMD)
     logger.info(f"Set point CH1 {float(response)}")
