@@ -1,5 +1,5 @@
 # Agilent-Vacuum
-A collection of classes for communication with various Agilent Vacuum pump controllers and sensors.
+A collection of classes for communication with various Agilent Vacuum pump controllers.
 
 This package supports:
 * Agilent TwissTorr 74FS Rack Turbo Pump controller 
