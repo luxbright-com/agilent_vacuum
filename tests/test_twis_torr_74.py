@@ -1,6 +1,8 @@
+import asyncio
 import pytest
 import logging
-from agilent_vacuum import *
+import agilent_vacuum as agilent
+import agilent_vacuum.twis_torr_74 as tw
 
 COM_PORT = '/dev/ttyS0'
 ADDR = 1
@@ -10,8 +12,8 @@ logger = logging.getLogger('vacuum')
 
 @pytest.fixture(scope='function')
 async def pump():
-    client = SerialClient(com_port=COM_PORT)
-    ctrl = TwisTorr74Driver(client, addr=ADDR)
+    client = agilent.SerialClient(com_port=COM_PORT)
+    ctrl = agilent.TwisTorr74Driver(client, addr=ADDR)
     await ctrl.connect(max_retries=1)
     yield ctrl
     client.close()
@@ -19,7 +21,7 @@ async def pump():
 
 @pytest.mark.asyncio
 async def test_serial_request(pump):
-    response = await pump.send_request(STATUS_CMD, force=True)
+    response = await pump.send_request(tw.STATUS_CMD, force=True)
     assert response.result_code is None
 
 
@@ -27,172 +29,172 @@ async def test_serial_request(pump):
 async def test_repeated_serial_request(pump):
     for i in range(10):
         logger.info(f"Repeated send {i}")
-        response = await pump.send_request(STATUS_CMD, force=True)
+        response = await pump.send_request(tw.STATUS_CMD, force=True)
         assert response.result_code is None
         await asyncio.sleep(0.2)
 
 
 @pytest.mark.asyncio
 async def test_send_basic_commands(pump):
-    response = await pump.send_request(STATUS_CMD)
+    response = await pump.send_request(tw.STATUS_CMD)
     logger.debug(f"STATUS_CMD {response.data}")
 
-    response = await pump.send_request(ERROR_CODE_CMD)
+    response = await pump.send_request(tw.ERROR_CODE_CMD)
     logger.debug(f"ERROR_CODE_CMD {response.data}")
 
-    response = await pump.send_request(START_STOP_CMD)
+    response = await pump.send_request(tw.START_STOP_CMD)
     logger.debug(f"START_STOP_CMD {response.data}")
     assert bool(response) is False
 
-    response = await pump.send_request(REMOTE_CMD)
+    response = await pump.send_request(tw.REMOTE_CMD)
     logger.debug(f"REMOTE_CMD {response.data}")
     # assert bool(response) is False
 
-    response = await pump.send_request(SOFT_START_CMD)
+    response = await pump.send_request(tw.SOFT_START_CMD)
     logger.debug(f"SOFT_START_CMD {response.data}")
     # assert bool(response) is False
 
-    response = await pump.send_request(ACTIVE_STOP_CMD)
+    response = await pump.send_request(tw.ACTIVE_STOP_CMD)
     logger.debug(f"ACTIVE_STOP_CMD {response.data}")
     # assert bool(response) is False
 
-    response = await pump.send_request(VENT_OPEN_CMD)
+    response = await pump.send_request(tw.VENT_OPEN_CMD)
     logger.debug(f"VENT_VALVE_OPEN_CMD {response.data}")
     # assert bool(response) is False
 
-    response = await pump.send_request(VENT_OPERATION_CMD)
+    response = await pump.send_request(tw.VENT_OPERATION_CMD)
     logger.debug(f"VENT_VALVE_OPERATION_CMD {response.data}")
     # assert bool(response) is False
 
-    response = await pump.send_request(VENT_DELAY_TIME_CMD)
+    response = await pump.send_request(tw.VENT_DELAY_TIME_CMD)
     logger.debug(f"VENT_VALVE_OPENING_DELAY_CMD {response.data}")
     # assert bool(response) is False
 
-    response = await pump.send_request(GAUGE_SET_POINT_TYP_CMD)
+    response = await pump.send_request(tw.GAUGE_SET_POINT_TYP_CMD)
     logger.debug(f"GAUGE_SET_POINT_TYP_CMD {response.data}")
     # assert int(response) == 3
 
-    response = await pump.send_request(GAUGE_SET_POINT_VALUE_CMD)
+    response = await pump.send_request(tw.GAUGE_SET_POINT_VALUE_CMD)
     logger.debug(f"GAUGE_SET_POINT_TYP_CMD {response.data}")
     # assert int(response) == 867
 
-    response = await pump.send_request(GAUGE_SET_POINT_MASK_CMD)
+    response = await pump.send_request(tw.R1_SET_POINT_HYSTERESIS_CMD)
     logger.debug(f"GAUGE_SET_POINT_MASK_CMD {response.data}")
     # assert int(response) == 867
 
-    response = await pump.send_request(GAUGE_SET_POINT_SIGNAL_TYPE_CMD)
+    response = await pump.send_request(tw.R1_SET_POINT_HYSTERESIS_CMD)
     logger.debug(f"GAUGE_SET_POINT_SIGNAL_TYPE_CMD {response.data}")
     # assert bool(response) is False
 
-    response = await pump.send_request(GAUGE_SET_POINT_HYSTERESIS_CMD)
+    response = await pump.send_request(tw.GAUGE_SET_POINT_HYSTERESIS_CMD)
     logger.debug(f"GAUGE_SET_POINT_HYSTERESIS_CMD {response.data}")
     # assert int(response) == 2
 
-    response = await pump.send_request(EXTERNAL_FAN_CONFIG_CMD)
+    response = await pump.send_request(tw.EXTERNAL_FAN_CONFIG_CMD)
     logger.debug(f"EXTERNAL_FAN_CONFIG_CMD {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(EXTERNAL_FAN_CONFIG_CMD)
+    response = await pump.send_request(tw.EXTERNAL_FAN_CONFIG_CMD)
     logger.debug(f"EXTERNAL_FAN_CONFIG_CMD {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(VENT_OPEN_TIME_CMD)
+    response = await pump.send_request(tw.VENT_OPEN_TIME_CMD)
     logger.debug(f"VENT_OPEN_TIME_CMD {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(POWER_LIMIT_APPLIED_CMD)
+    response = await pump.send_request(tw.POWER_LIMIT_APPLIED_CMD)
     logger.debug(f"POWER_LIMIT_APPLIED_CMD {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(GAS_LOAD_TYPE_CMD)
+    response = await pump.send_request(tw.GAS_LOAD_TYPE_CMD)
     logger.debug(f"GAS_LOAD_TYPE_CMD {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(R1_SET_POINT_VALUE_CMD)
+    response = await pump.send_request(tw.R1_SET_POINT_VALUE_CMD)
     logger.debug(f"R1_SET_POINT_THRESHOLD_CMD {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(PRESSURE_UNIT_CMD)
+    response = await pump.send_request(tw.PRESSURE_UNIT_CMD)
     logger.debug(f"PRESSURE_UNIT_CMD {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(R2_SET_POINT_TYPE_CMD)
+    response = await pump.send_request(tw.R2_SET_POINT_TYPE_CMD)
     logger.debug(f"R2_SET_POINT_TYP_CMD {response.data}")
     # assert int(response) == 3
 
-    response = await pump.send_request(R2_SET_POINT_VALUE_CMD)
+    response = await pump.send_request(tw.R2_SET_POINT_VALUE_CMD)
     logger.debug(f"R2_SET_POINT_TYP_CMD {response.data}")
     # assert int(response) == 867
 
-    response = await pump.send_request(R2_SET_POINT_MASK_CMD)
+    response = await pump.send_request(tw.R2_SET_POINT_MASK_CMD)
     logger.debug(f"R2_SET_POINT_MASK_CMD {response.data}")
     # assert int(response) == 867
 
-    response = await pump.send_request(R2_SET_POINT_SIGNAL_TYPE_CMD)
+    response = await pump.send_request(tw.R2_SET_POINT_SIGNAL_TYPE_CMD)
     logger.debug(f"R2_SET_POINT_SIGNAL_TYPE_CMD {response.data}")
     # assert bool(response) is False
 
-    response = await pump.send_request(R2_SET_POINT_HYSTERESIS_CMD)
+    response = await pump.send_request(tw.R2_SET_POINT_HYSTERESIS_CMD)
     logger.debug(f"R2_SET_POINT_HYSTERESIS_CMD {response.data}")
     # assert int(response) == 2
 
-    response = await pump.send_request(R2_SET_POINT_PRESSURE_VALUE_CMD)
+    response = await pump.send_request(tw.R2_SET_POINT_PRESSURE_VALUE_CMD)
     logger.debug(f"R2_SET_POINT_THRESHOLD_CMD {response.data}")
     # assert int(response) == 2
 
-    response = await pump.send_request(START_OUTPUT_MODE_CMD)
+    response = await pump.send_request(tw.START_OUTPUT_MODE_CMD)
     logger.debug(f"START_OUTPUT_MODE_CMD {response.data}")
     # assert bool(response) == False
 
-    response = await pump.send_request(GAS_TYPE_CMD)
+    response = await pump.send_request(tw.GAS_TYPE_CMD)
     logger.debug(f"GAS_TYPE_CMD {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(GAS_CORRECTION_CMD)
+    response = await pump.send_request(tw.GAS_CORRECTION_CMD)
     logger.debug(f"GAS_CORRECTION_CMD {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(PUMP_CURRENT_CMD)
+    response = await pump.send_request(tw.PUMP_CURRENT_CMD)
     logger.debug(f"PUMP_CURRENT_CMD  {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(PUMP_VOLTAGE_CMD)
+    response = await pump.send_request(tw.PUMP_VOLTAGE_CMD)
     logger.debug(f"PUMP_VOLTAGE_CMD  {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(PUMP_POWER_CMD)
+    response = await pump.send_request(tw.PUMP_POWER_CMD)
     logger.debug(f"PUMP_POWER_CMD  {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(DRIVE_FREQUENCY_CMD)
+    response = await pump.send_request(tw.DRIVE_FREQUENCY_CMD)
     logger.debug(f"DRIVE_FREQUENCY_CMD  {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(PUMP_TEMPERATURE_CMD)
+    response = await pump.send_request(tw.PUMP_TEMPERATURE_CMD)
     logger.debug(f"PUMP_TEMPERATURE_CMD  {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(CONTROLLER_HEATSINK_TEMPERATURE_CMD)
+    response = await pump.send_request(tw.CONTROLLER_HEATSINK_TEMPERATURE_CMD)
     logger.debug(f"CONTROLLER_HEATSINK_TEMPERATURE_CMD  {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(CONTROLLER_AIR_TEMPERATURE_CMD)
+    response = await pump.send_request(tw.CONTROLLER_AIR_TEMPERATURE_CMD)
     logger.debug(f"CONTROLLER_AIR_TEMPERATURE_CMD  {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(GAUGE_READ_CMD)
+    response = await pump.send_request(tw.GAUGE_READ_CMD)
     logger.debug(f"GAUGE_READ_CMD {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(ROTATION_FREQUENCY_CMD)
+    response = await pump.send_request(tw.ROTATION_FREQUENCY_CMD)
     logger.debug(f"ROTATION_FREQUENCY_CMD {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(GAUGE_STATUS_CMD)
+    response = await pump.send_request(tw.GAUGE_STATUS_CMD)
     logger.debug(f"GAUGE_STATUS_CMD {response.data}")
     # assert int(response) == 0
 
-    response = await pump.send_request(GAUGE_POWER_CMD)
+    response = await pump.send_request(tw.GAUGE_POWER_CMD)
     logger.debug(f"GAUGE_POWER_CMD {response.data}")
     # assert int(response) == 0
 
@@ -202,10 +204,10 @@ async def test_high_level(pump):
     pause_time = 0.1
 
     status = await pump.get_status()
-    assert status is PumpStatus.STOP
+    assert status is tw.PumpStatus.STOP
 
     error = await pump.get_error()
-    assert error is PumpErrorCode.NO_ERROR
+    assert error is tw.PumpErrorCode.NO_ERROR
 
     # soft start
     soft_start_backup = await pump.get_soft_start()
@@ -317,7 +319,7 @@ async def test_fan_on(pump):
     pause_time = 0.1
 
     status = await pump.get_status()
-    assert status is PumpStatus.STOP
+    assert status is tw.PumpStatus.STOP
     await pump.set_fan_config(2)  # ON
     await asyncio.sleep(pause_time)
     assert await pump.get_fan_config() == 2
@@ -330,7 +332,7 @@ async def test_fan_off(pump):
     pause_time = 0.1
 
     status = await pump.get_status()
-    assert status is PumpStatus.STOP
+    assert status is tw.PumpStatus.STOP
     await pump.set_fan_config(2)  # ON
     await asyncio.sleep(pause_time)
     assert await pump.get_fan_config() == 2
@@ -353,9 +355,9 @@ async def test_set_R1_config(pump):
     await pump.set_setpoint(1, setpoint_tuple=old_config)
     assert await pump.get_setpoint(1) == old_config
 
-    await pump.set_setpoint(1, point_type=SetpointType.FREQ, value=40000)
+    await pump.set_setpoint(1, point_type=tw.SetpointType.FREQ, value=40000)
     config = await pump.get_setpoint(1)
-    assert config.point_type == SetpointType.FREQ
+    assert config.point_type == tw.SetpointType.FREQ
     assert config.value == 40000
 
     # restore
@@ -369,9 +371,9 @@ async def test_set_R2_config(pump):
     await pump.set_setpoint(2, setpoint_tuple=old_config)
     assert await pump.get_setpoint(2) == old_config
 
-    await pump.set_setpoint(2, point_type=SetpointType.FREQ, value=40000)
+    await pump.set_setpoint(2, point_type=tw.SetpointType.FREQ, value=40000)
     config = await pump.get_setpoint(2)
-    assert config.point_type == SetpointType.FREQ
+    assert config.point_type == tw.SetpointType.FREQ
     assert config.value == 40000
 
     # restore
