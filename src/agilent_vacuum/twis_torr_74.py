@@ -1,125 +1,304 @@
 """
 Interface to Agilent TwisTorr 74 FS controller
 """
+
 import asyncio
-from collections import namedtuple
 from enum import IntEnum, IntFlag
 import logging
-from typing import Optional, Union, NamedTuple
+from typing import NamedTuple
 
-from .communication import DataType, Command, SerialClient, Response, AgilentDriver, PressureUnit, LanClient
-from .commands import *
-from .exceptions import *
+from .communication import SerialClient, AgilentDriver, PressureUnit
+from .commands import DataType, Command
+from .commands import STATUS_CMD, ERROR_CODE_CMD
+from .exceptions import UnknownWindow, ComError, WinDisabled
 
-logger = logging.getLogger('vacuum')
+logger = logging.getLogger("vacuum")
 
 # TODO implement all commands
-START_STOP_CMD = Command(win=0, writable=True, datatype=DataType.LOGIC,
-                         description="Start/Stop (in remote/ mode the window is read only)")
-REMOTE_CMD = Command(win=8, writable=True, datatype=DataType.LOGIC,
-                     description="Mode, Remote or Serial configuration (default = True)")
-SOFT_START_CMD = Command(win=100, writable=True, datatype=DataType.LOGIC,
-                         description="Soft Start (write only in Stop condition, default = False)")
-R1_SET_POINT_TYPE_CMD = Command(win=101, writable=True, datatype=DataType.NUMERIC,
-                                description="R1 Set Point type 0 = Frequency 1 = Power 2 = Time 3 = Normal (default = 3)"
-                                            "4 =Pressure (available only if the gauge is connected)")
-R1_SET_POINT_VALUE_CMD = Command(win=102, writable=True, datatype=DataType.NUMERIC,
-                                 description="R1 Set Point threshold value (expressed in Hz, W or s)"
-                                             "(default = 900) Note, use WIN 162 for pressure")
-R1_SET_POINT_DELAY_CMD = Command(win=103, writable=True, datatype=DataType.NUMERIC,
-                                 description="Set Point delay: time between the pump start and the set point check"
-                                             "(seconds) 0 to 99999 (default = 0)")
-R1_SET_POINT_ACTIVATION_TYPE_CMD = Command(win=104, writable=True, datatype=DataType.LOGIC,
-                                           description='Set Point signal activation type: the signal can be'
-                                                       '"high level active" or "low level active"'
-                                                       '0 = high level active 1 = low level active (default = 0)')
-R1_SET_POINT_HYSTERESIS_CMD = Command(win=105, writable=True, datatype=DataType.NUMERIC,
-                                      description="Set point hysteresis (in % of value) 0 to 100 (default = 2)")
-ACTIVE_STOP_CMD = Command(win=107, writable=True, datatype=DataType.LOGIC,
-                          description="Active Stop (write only in stop) 0 = NO 1 = YES")
-WATER_COOLING_CMD = Command(win=106, writable=True, datatype=DataType.LOGIC,
-                            description="Water cooling 0 = NO 1 = YES")
+START_STOP_CMD = Command(
+    win=0,
+    writable=True,
+    datatype=DataType.LOGIC,
+    description="Start/Stop (in remote/ mode the window is read only)",
+)
+REMOTE_CMD = Command(
+    win=8,
+    writable=True,
+    datatype=DataType.LOGIC,
+    description="Mode, Remote or Serial configuration (default = True)",
+)
+SOFT_START_CMD = Command(
+    win=100,
+    writable=True,
+    datatype=DataType.LOGIC,
+    description="Soft Start (write only in Stop condition, default = False)",
+)
+R1_SET_POINT_TYPE_CMD = Command(
+    win=101,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="R1 Set Point type 0 = Frequency 1 = Power 2 = Time 3 = Normal (default = 3)"
+    "4 =Pressure (available only if the gauge is connected)",
+)
+R1_SET_POINT_VALUE_CMD = Command(
+    win=102,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="R1 Set Point threshold value (expressed in Hz, W or s)"
+    "(default = 900) Note, use WIN 162 for pressure",
+)
+R1_SET_POINT_DELAY_CMD = Command(
+    win=103,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="Set Point delay: time between the pump start and the set point check"
+    "(seconds) 0 to 99999 (default = 0)",
+)
+R1_SET_POINT_ACTIVATION_TYPE_CMD = Command(
+    win=104,
+    writable=True,
+    datatype=DataType.LOGIC,
+    description="Set Point signal activation type: the signal can be"
+    '"high level active" or "low level active"'
+    "0 = high level active 1 = low level active (default = 0)",
+)
+R1_SET_POINT_HYSTERESIS_CMD = Command(
+    win=105,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="Set point hysteresis (in % of value) 0 to 100 (default = 2)",
+)
+ACTIVE_STOP_CMD = Command(
+    win=107,
+    writable=True,
+    datatype=DataType.LOGIC,
+    description="Active Stop (write only in stop) 0 = NO 1 = YES",
+)
+WATER_COOLING_CMD = Command(
+    win=106,
+    writable=True,
+    datatype=DataType.LOGIC,
+    description="Water cooling 0 = NO 1 = YES",
+)
 # 108 baud rate defined in common command list
-VENT_OPEN_CMD = Command(win=122, writable=True, datatype=DataType.LOGIC,
-                        description="Set vent valve on/off (on = closed) On = 1 Off = 0 (default = 1)")
-VENT_OPERATION_CMD = Command(win=125, writable=True, datatype=DataType.LOGIC,
-                             description="Set the vent valve operation. "
-                                         "Automatic = False On command = True (default = False)")
-VENT_DELAY_TIME_CMD = Command(win=126, writable=True, datatype=DataType.NUMERIC,
-                              description="Vent valve opening delay (expressed in 0.2sec)"
-                                          "0 to 65535 (corresponding to 0 to 13107 sec)")
-GAUGE_SET_POINT_TYP_CMD = Command(win=136, writable=True, datatype=DataType.NUMERIC,
-                                  description="Gauge Set Point Type 0 = Freq 1 = Power 2 = Time 3 = Normal (default)")
-GAUGE_SET_POINT_VALUE_CMD = Command(win=137, writable=True, datatype=DataType.NUMERIC,
-                                    description="Gauge Set Point Value (Hz, W, s) (default (867)")
-GAUGE_SET_POINT_MASK_CMD = Command(win=138, writable=True, datatype=DataType.NUMERIC,
-                                   description="Gauge Set Point Mask (sec) (default = 0)")
-GAUGE_SET_POINT_SIGNAL_TYPE_CMD = Command(win=139, writable=True, datatype=DataType.LOGIC,
-                                          description="Gauge Set Point Signal Activation Type"
-                                                      "False = high level active (default) True = low level active")
-GAUGE_SET_POINT_HYSTERESIS_CMD = Command(win=140, writable=True, datatype=DataType.NUMERIC,
-                                         description="Gauge Set front Hysteresis (in % of R2 Valve) (default = 2)")
-EXTERNAL_FAN_CONFIG_CMD = Command(win=143, writable=True, datatype=DataType.NUMERIC,
-                                  description="External Fan Configuration 0=ON 1=automatic 2=serial (default = 0)")
-EXTERNAL_FAN_ACTIVATION_CMD = Command(win=144, writable=True, datatype=DataType.LOGIC,
-                                      description="External Fan Activation 0 = OFF 1 = ON (default = 0)")
-VENT_OPEN_TIME_CMD = Command(win=147, writable=True, datatype=DataType.NUMERIC,
-                             description="Vent open time See “vent connector” paragraph 0 = infinite 1 bit = 0.2 sec")
-POWER_LIMIT_APPLIED_CMD = Command(win=155, writable=False, datatype=DataType.NUMERIC,
-                                  description="Power limit applied Read the maximum power deliverable to the pump watt")
-GAS_LOAD_TYPE_CMD = Command(win=157, writable=True, datatype=DataType.NUMERIC,
-                            description="Gas load type. Select the gas load to the pump 0 = N2 1 = Argon")
-R1_SET_POINT_PRESSURE_VALUE_CMD = Command(win=162, writable=True, datatype=DataType.NUMERIC,
-                                          description="R1 Set Point Pressure Threshold"
-                                                      "Valid if min. 101 = 4 Format X.X EsXX Where X = 0 to 9 s = + or -")
-PRESSURE_UNIT_CMD = Command(win=163, writable=True, datatype=DataType.NUMERIC,
-                            description="Unit pressure 0=mBar 1=Pa 2=Torr")
-ENABLE_STOP_SPEED_READ_CMD = Command(win=167, writable=True, datatype=DataType.LOGIC,
-                                     description="Enable/Disable reading the pump speed after Stop command")
-R2_SET_POINT_TYPE_CMD = Command(win=171, writable=True, datatype=DataType.NUMERIC,
-                                description="R2 Set Point Type 0 = Freq 1 = Power 2 = Time 3 = Normal (default = 3) "
-                                            "4 =Pressure (available only if the gauge is connected)")
-R2_SET_POINT_VALUE_CMD = Command(win=172, writable=True, datatype=DataType.NUMERIC,
-                                 description="R2 Set Point Value (Hz, W, s)")
-R2_SET_POINT_MASK_CMD = Command(win=173, writable=True, datatype=DataType.NUMERIC,
-                                description="R2 Set Point Mask (sec)")
-R2_SET_POINT_SIGNAL_TYPE_CMD = Command(win=174, writable=True, datatype=DataType.LOGIC,
-                                       description="R2 Set Point Signal Activation Type"
-                                                   "False = high level active, True = low level active")
-R2_SET_POINT_HYSTERESIS_CMD = Command(win=175, writable=True, datatype=DataType.NUMERIC,
-                                      description="R2 Set front Hysteresis (in % of R2 Valve)")
-R2_SET_POINT_PRESSURE_VALUE_CMD = Command(win=176, writable=True, datatype=DataType.NUMERIC,
-                                          description="R2 Set Point Pressure Threshold Valid if win 171 = 4"
-                                                      "Format X.X EsXX Where: X= 0 to 9 s = + or -")
-START_OUTPUT_MODE_CMD = Command(win=177, writable=True, datatype=DataType.LOGIC,
-                                description="Start Output Mode"
-                                            "False = Starting (Output ON only with pump Status = Starting)"
-                                            "True = running (Output ON when the pump is running) (default False)")
-GAS_TYPE_CMD = Command(win=181, writable=True, datatype=DataType.NUMERIC,
-                       description="Gas type 0 = not configured 1 = Nitrogen 2 = Argon 3 = Idrogen 4 =other")
-GAS_CORRECTION_CMD = Command(win=182, writable=True, datatype=DataType.NUMERIC, description="Gas correction")
-PUMP_CURRENT_CMD = Command(win=200, writable=False, datatype=DataType.NUMERIC,
-                           description="Pump current in mA dc")
-PUMP_VOLTAGE_CMD = Command(win=201, writable=False, datatype=DataType.NUMERIC,
-                           description="Pump voltage in Vdc")
-PUMP_POWER_CMD = Command(win=202, writable=False, datatype=DataType.NUMERIC,
-                         description="Pump power in W (pump current x pump voltage duty cycle")
-DRIVE_FREQUENCY_CMD = Command(win=203, writable=False, datatype=DataType.NUMERIC,
-                              description="Driving frequency in Hz")
-PUMP_TEMPERATURE_CMD = Command(win=204, writable=False, datatype=DataType.NUMERIC,
-                               description="Pump temperature in °C 0 to 70")
+VENT_OPEN_CMD = Command(
+    win=122,
+    writable=True,
+    datatype=DataType.LOGIC,
+    description="Set vent valve on/off (on = closed) On = 1 Off = 0 (default = 1)",
+)
+VENT_OPERATION_CMD = Command(
+    win=125,
+    writable=True,
+    datatype=DataType.LOGIC,
+    description="Set the vent valve operation. "
+    "Automatic = False On command = True (default = False)",
+)
+VENT_DELAY_TIME_CMD = Command(
+    win=126,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="Vent valve opening delay (expressed in 0.2sec)"
+    "0 to 65535 (corresponding to 0 to 13107 sec)",
+)
+GAUGE_SET_POINT_TYP_CMD = Command(
+    win=136,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="Gauge Set Point Type 0 = Freq 1 = Power 2 = Time 3 = Normal (default)",
+)
+GAUGE_SET_POINT_VALUE_CMD = Command(
+    win=137,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="Gauge Set Point Value (Hz, W, s) (default (867)",
+)
+GAUGE_SET_POINT_MASK_CMD = Command(
+    win=138,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="Gauge Set Point Mask (sec) (default = 0)",
+)
+GAUGE_SET_POINT_SIGNAL_TYPE_CMD = Command(
+    win=139,
+    writable=True,
+    datatype=DataType.LOGIC,
+    description="Gauge Set Point Signal Activation Type"
+    "False = high level active (default) True = low level active",
+)
+GAUGE_SET_POINT_HYSTERESIS_CMD = Command(
+    win=140,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="Gauge Set front Hysteresis (in % of R2 Valve) (default = 2)",
+)
+EXTERNAL_FAN_CONFIG_CMD = Command(
+    win=143,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="External Fan Configuration 0=ON 1=automatic 2=serial (default = 0)",
+)
+EXTERNAL_FAN_ACTIVATION_CMD = Command(
+    win=144,
+    writable=True,
+    datatype=DataType.LOGIC,
+    description="External Fan Activation 0 = OFF 1 = ON (default = 0)",
+)
+VENT_OPEN_TIME_CMD = Command(
+    win=147,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="Vent open time See “vent connector” paragraph 0 = infinite 1 bit = 0.2 sec",
+)
+POWER_LIMIT_APPLIED_CMD = Command(
+    win=155,
+    writable=False,
+    datatype=DataType.NUMERIC,
+    description="Power limit applied Read the maximum power deliverable to the pump watt",
+)
+GAS_LOAD_TYPE_CMD = Command(
+    win=157,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="Gas load type. Select the gas load to the pump 0 = N2 1 = Argon",
+)
+R1_SET_POINT_PRESSURE_VALUE_CMD = Command(
+    win=162,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="R1 Set Point Pressure Threshold"
+    "Valid if min. 101 = 4 Format X.X EsXX Where X = 0 to 9 s = + or -",
+)
+PRESSURE_UNIT_CMD = Command(
+    win=163,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="Unit pressure 0=mBar 1=Pa 2=Torr",
+)
+ENABLE_STOP_SPEED_READ_CMD = Command(
+    win=167,
+    writable=True,
+    datatype=DataType.LOGIC,
+    description="Enable/Disable reading the pump speed after Stop command",
+)
+R2_SET_POINT_TYPE_CMD = Command(
+    win=171,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="R2 Set Point Type 0 = Freq 1 = Power 2 = Time 3 = Normal (default = 3) "
+    "4 =Pressure (available only if the gauge is connected)",
+)
+R2_SET_POINT_VALUE_CMD = Command(
+    win=172,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="R2 Set Point Value (Hz, W, s)",
+)
+R2_SET_POINT_MASK_CMD = Command(
+    win=173,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="R2 Set Point Mask (sec)",
+)
+R2_SET_POINT_SIGNAL_TYPE_CMD = Command(
+    win=174,
+    writable=True,
+    datatype=DataType.LOGIC,
+    description="R2 Set Point Signal Activation Type"
+    "False = high level active, True = low level active",
+)
+R2_SET_POINT_HYSTERESIS_CMD = Command(
+    win=175,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="R2 Set front Hysteresis (in % of R2 Valve)",
+)
+R2_SET_POINT_PRESSURE_VALUE_CMD = Command(
+    win=176,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="R2 Set Point Pressure Threshold Valid if win 171 = 4"
+    "Format X.X EsXX Where: X= 0 to 9 s = + or -",
+)
+START_OUTPUT_MODE_CMD = Command(
+    win=177,
+    writable=True,
+    datatype=DataType.LOGIC,
+    description="Start Output Mode"
+    "False = Starting (Output ON only with pump Status = Starting)"
+    "True = running (Output ON when the pump is running) (default False)",
+)
+GAS_TYPE_CMD = Command(
+    win=181,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="Gas type 0 = not configured 1 = Nitrogen 2 = Argon 3 = Idrogen 4 =other",
+)
+GAS_CORRECTION_CMD = Command(
+    win=182, writable=True, datatype=DataType.NUMERIC, description="Gas correction"
+)
+PUMP_CURRENT_CMD = Command(
+    win=200,
+    writable=False,
+    datatype=DataType.NUMERIC,
+    description="Pump current in mA dc",
+)
+PUMP_VOLTAGE_CMD = Command(
+    win=201,
+    writable=False,
+    datatype=DataType.NUMERIC,
+    description="Pump voltage in Vdc",
+)
+PUMP_POWER_CMD = Command(
+    win=202,
+    writable=False,
+    datatype=DataType.NUMERIC,
+    description="Pump power in W (pump current x pump voltage duty cycle",
+)
+DRIVE_FREQUENCY_CMD = Command(
+    win=203,
+    writable=False,
+    datatype=DataType.NUMERIC,
+    description="Driving frequency in Hz",
+)
+PUMP_TEMPERATURE_CMD = Command(
+    win=204,
+    writable=False,
+    datatype=DataType.NUMERIC,
+    description="Pump temperature in °C 0 to 70",
+)
 # 205-206 defined in common command list
-CONTROLLER_HEATSINK_TEMPERATURE_CMD = Command(win=211, writable=False, datatype=DataType.NUMERIC,
-                                              description="Controller Heatsink Temperature (°C)")
-CONTROLLER_AIR_TEMPERATURE_CMD = Command(win=216, writable=False, datatype=DataType.NUMERIC,
-                                         description="Controller Air Temperature (°C)")
-GAUGE_READ_CMD = Command(win=224, writable=False, datatype=DataType.NUMERIC,
-                         description="Pressure reading with the format X.X E")
-ROTATION_FREQUENCY_CMD = Command(win=226, writable=False, datatype=DataType.NUMERIC,
-                                 description="Rotation Frequency (rpm)")
+CONTROLLER_HEATSINK_TEMPERATURE_CMD = Command(
+    win=211,
+    writable=False,
+    datatype=DataType.NUMERIC,
+    description="Controller Heatsink Temperature (°C)",
+)
+CONTROLLER_AIR_TEMPERATURE_CMD = Command(
+    win=216,
+    writable=False,
+    datatype=DataType.NUMERIC,
+    description="Controller Air Temperature (°C)",
+)
+GAUGE_READ_CMD = Command(
+    win=224,
+    writable=False,
+    datatype=DataType.NUMERIC,
+    description="Pressure reading with the format X.X E",
+)
+ROTATION_FREQUENCY_CMD = Command(
+    win=226,
+    writable=False,
+    datatype=DataType.NUMERIC,
+    description="Rotation Frequency (rpm)",
+)
 
-GAUGE_STATUS_CMD = Command(win=257, writable=False, datatype=DataType.NUMERIC, description="Gauge status")
-GAUGE_POWER_CMD = Command(win=267, writable=True, datatype=DataType.NUMERIC, description="Gauge power")
+GAUGE_STATUS_CMD = Command(
+    win=257, writable=False, datatype=DataType.NUMERIC, description="Gauge status"
+)
+GAUGE_POWER_CMD = Command(
+    win=267, writable=True, datatype=DataType.NUMERIC, description="Gauge power"
+)
 
 
 class GaugeStatus(IntEnum):
@@ -156,6 +335,7 @@ class SetpointType(IntEnum):
     """
     R1 and R1 setpoint types.
     """
+
     FREQ = 0
     POWER = 1
     TIME = 2
@@ -167,6 +347,7 @@ class SetpointTuple(NamedTuple):
     """
     R1 and R2 setpoint tuple.
     """
+
     point_type: SetpointType
     value: float | int
     delay: int
@@ -178,9 +359,10 @@ class TwisTorr74Driver(AgilentDriver):
     """
     Driver for the Agilent TwisTorr 74 FS Turbomolecular pump rack controller
     """
+
     PRESSURE_UNITS = [PressureUnit.mBar, PressureUnit.Pa, PressureUnit.Torr]
 
-    def __init__(self, client: Union[LanClient, SerialClient, None], addr: int = 0, **kwargs):
+    def __init__(self, client: SerialClient, addr: int = 0, **kwargs):
         super().__init__(client, addr=addr, **kwargs)
 
     async def connect(self, max_retries: int = 1) -> None:
@@ -192,7 +374,7 @@ class TwisTorr74Driver(AgilentDriver):
         retries = 0
         while self.is_connected is False:
             try:
-                response = await self.send_request(STATUS_CMD, force=True)
+                await self.send_request(STATUS_CMD, force=True)
                 self.is_connected = True
 
             except (OSError, EOFError, ComError) as e:
@@ -200,13 +382,13 @@ class TwisTorr74Driver(AgilentDriver):
                 if max_retries > 0:
                     retries += 1
                     if retries > max_retries:
-                        logger.error(f"Failed to connect to TwissTorr74")
-                        raise ComError(f"Failed to connect to TwissTorr74")
+                        logger.error("Failed to connect to TwissTorr74")
+                        raise ComError("Failed to connect to TwissTorr74")
 
                 await asyncio.sleep(0.5)
 
         # TODO add readout of model and serial number
-        logger.info(f"Connected to TwissTorr74 controller")
+        logger.info("Connected to TwissTorr74 controller")
         status = await self.get_status()
         errors = await self.get_error()
         logger.info(f"status:{status.name} errors: {errors.name}")
@@ -326,7 +508,9 @@ class TwisTorr74Driver(AgilentDriver):
         :param unit: pressure unit as PressureUnit enum
         :return: unit as PressureUnit enum
         """
-        response = await self.send_request(PRESSURE_UNIT_CMD, write=True, data=self.PRESSURE_UNITS.index(unit))
+        response = await self.send_request(
+            PRESSURE_UNIT_CMD, write=True, data=self.PRESSURE_UNITS.index(unit)
+        )
         logger.debug(f"Pressure unit data {response.data}")
 
     async def get_soft_start(self) -> bool:
@@ -479,7 +663,7 @@ class TwisTorr74Driver(AgilentDriver):
                     value=s_value,
                     delay=s_delay,
                     hysteresis=s_hysteresis,
-                    active_high=s_activation_high
+                    active_high=s_activation_high,
                 )
 
             case 2:
@@ -502,21 +686,21 @@ class TwisTorr74Driver(AgilentDriver):
                     value=s_value,
                     delay=s_delay,
                     hysteresis=s_hysteresis,
-                    active_high=s_activation_high
+                    active_high=s_activation_high,
                 )
 
             case _:
                 raise UnknownWindow("Setpoint number must be 1 or 2")
 
     async def set_setpoint(
-            self,
-            setpoint_num: int,
-            setpoint_tuple: SetpointTuple | None = None,
-            point_type: SetpointType | None = None,
-            value: int | float | None = None,
-            delay: int | None = None,
-            active_high: bool | None = None,
-            hysteresis: int | None = None,
+        self,
+        setpoint_num: int,
+        setpoint_tuple: SetpointTuple | None = None,
+        point_type: SetpointType | None = None,
+        value: int | float | None = None,
+        delay: int | None = None,
+        active_high: bool | None = None,
+        hysteresis: int | None = None,
     ) -> None:
         """
         Configure the R1 setpoint output.
@@ -541,36 +725,60 @@ class TwisTorr74Driver(AgilentDriver):
 
         match setpoint_num:
             case 1:
-                await self.send_request(R1_SET_POINT_TYPE_CMD, write=True, data=point_type.value)
+                await self.send_request(
+                    R1_SET_POINT_TYPE_CMD, write=True, data=point_type.value
+                )
 
                 if value is not None:
                     if point_type is SetpointType.PRESSURE:
-                        await self.send_request(R1_SET_POINT_PRESSURE_VALUE_CMD, write=True, data=value)
+                        await self.send_request(
+                            R1_SET_POINT_PRESSURE_VALUE_CMD, write=True, data=value
+                        )
                     else:
-                        await self.send_request(R1_SET_POINT_VALUE_CMD, write=True, data=int(value))
+                        await self.send_request(
+                            R1_SET_POINT_VALUE_CMD, write=True, data=int(value)
+                        )
 
                 if isinstance(delay, int):
-                    await self.send_request(R1_SET_POINT_DELAY_CMD, write=True, data=delay)
+                    await self.send_request(
+                        R1_SET_POINT_DELAY_CMD, write=True, data=delay
+                    )
                 if isinstance(active_high, bool):
-                    await self.send_request(R1_SET_POINT_ACTIVATION_TYPE_CMD, write=True, data=active_high)
+                    await self.send_request(
+                        R1_SET_POINT_ACTIVATION_TYPE_CMD, write=True, data=active_high
+                    )
                 if isinstance(hysteresis, int):
-                    await self.send_request(R1_SET_POINT_HYSTERESIS_CMD, write=True, data=hysteresis)
+                    await self.send_request(
+                        R1_SET_POINT_HYSTERESIS_CMD, write=True, data=hysteresis
+                    )
 
             case 2:
-                await self.send_request(R2_SET_POINT_TYPE_CMD, write=True, data=point_type.value)
+                await self.send_request(
+                    R2_SET_POINT_TYPE_CMD, write=True, data=point_type.value
+                )
 
                 if value is not None:
                     if point_type is SetpointType.PRESSURE:
-                        await self.send_request(R2_SET_POINT_PRESSURE_VALUE_CMD, write=True, data=value)
+                        await self.send_request(
+                            R2_SET_POINT_PRESSURE_VALUE_CMD, write=True, data=value
+                        )
                     else:
-                        await self.send_request(R2_SET_POINT_VALUE_CMD, write=True, data=int(value))
+                        await self.send_request(
+                            R2_SET_POINT_VALUE_CMD, write=True, data=int(value)
+                        )
 
                 if isinstance(delay, int):
-                    await self.send_request(R2_SET_POINT_MASK_CMD, write=True, data=delay)
+                    await self.send_request(
+                        R2_SET_POINT_MASK_CMD, write=True, data=delay
+                    )
                 if isinstance(active_high, bool):
-                    await self.send_request(R2_SET_POINT_SIGNAL_TYPE_CMD, write=True, data=active_high)
+                    await self.send_request(
+                        R2_SET_POINT_SIGNAL_TYPE_CMD, write=True, data=active_high
+                    )
                 if isinstance(hysteresis, int):
-                    await self.send_request(R2_SET_POINT_HYSTERESIS_CMD, write=True, data=hysteresis)
+                    await self.send_request(
+                        R2_SET_POINT_HYSTERESIS_CMD, write=True, data=hysteresis
+                    )
 
             case _:
                 raise UnknownWindow("Setpoint number must be 1 or 2")

@@ -38,6 +38,10 @@ test = [
     "pytest-asyncio > 0.24",
     "pytest-timeout > 2.3"
 ]
+dev = [
+    "ruff",
+    "twine"
+]
 
 [project.urls]
 "Homepage" = "https://github.com/luxbright-com/vacuum_interfaces"

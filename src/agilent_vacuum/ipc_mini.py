@@ -1,53 +1,124 @@
 """
 Interface to Agilent IPCMini Ion Pump Controller
 """
+
 import asyncio
 from enum import IntEnum, IntFlag
 import logging
-from typing import Optional, Union
 
-from .communication import Command, SerialClient, LanClient, Response, AgilentDriver, PressureUnit
-from .commands import *
-from .exceptions import *
+from .communication import SerialClient, AgilentDriver, PressureUnit
+from .commands import Command, DataType
+from .commands import STATUS_CMD, ERROR_CODE_CMD
+from .exceptions import ComError, WinDisabled
 
-logger = logging.getLogger('vacuum')
+logger = logging.getLogger("vacuum")
 
-MODE_CMD = Command(win=8, writable=True, datatype=DataType.NUMERIC, description='Mode')
-HV_ONOFF_CH1_CMD = Command(win=11, writable=True, datatype=DataType.LOGIC, description="HV ON/OFF CH1")
-CONTROLLER_MODEL_CMD = Command(win=319, writable=False, datatype=DataType.ALPHANUMERIC, description="Controller Model")
-CONTROLLER_SERIAL_NO_CMD = Command(win=323, writable=False, datatype=DataType.ALPHANUMERIC,
-                                   description="Controller Serial number")
-UNIT_PRESSURE_CMD = Command(win=600, writable=True, datatype=DataType.NUMERIC,
-                            description="Unit pressure 0 = Torr 1=mBar (def) 2=Pa")
-AUTO_START_CMD = Command(win=601, writable=True, datatype=DataType.LOGIC,
-                         description="Autostart 0 = Disabled, 1 = Enabled")
-PROTECT_CMD = Command(win=602, writable=True, datatype=DataType.LOGIC,
-                      description="Protect 0 = Disabled, 1 = Enabled")
-STEP_CMD = Command(win=603, writable=True, datatype=DataType.LOGIC,
-                   description="Fixed/Step 0 = Disabled, 1 = Enabled")
-DEVICE_NUM_CH1_CMD = Command(win=610, writable=True, datatype=DataType.NUMERIC,
-                             description="Device Number CH1")
-MAX_POWER_CMD = Command(win=612, writable=True, datatype=DataType.NUMERIC,
-                        description="Max Power 10W – 40W")
-V_TARGET_CH1_CMD = Command(win=613, writable=True, datatype=DataType.NUMERIC,
-                           description="V target CH1 [3000,7000] V def=7000")
-I_PROTECT_CH1_CMD = Command(win=614, writable=True, datatype=DataType.NUMERIC,
-                            description="I protect CH1 [1,10000 uA] step 1 uA")
-SET_POINT_CH1_CMD = Command(win=615, writable=True, datatype=DataType.NUMERIC,
-                            description="Set Point CH1 [X.XE-XX]")
-TEMPERATURE_POWER_CMD = Command(win=800, writable=False, datatype=DataType.NUMERIC,
-                                description="Temperature Power section [0, 200] °C")
-TEMPERATURE_CONTROLLER_CMD = Command(win=801, writable=False, datatype=DataType.NUMERIC,
-                                     description="Temperature internal controller [0, 200] °C")
-STATUS_SET_POINT = Command(win=804, writable=False, datatype=DataType.LOGIC,
-                           description="804 R L Status Set point 0 = OFF 1 = ON")
-V_MEASURED_CH1_CMD = Command(win=810, writable=False, datatype=DataType.NUMERIC,
-                             description="V measured CH1 [0, 7000] V: step 100V")
-I_MEASURED_CH1_CMD = Command(win=811, writable=False, datatype=DataType.NUMERIC,
-                             description="I measured CH1 [1E-10, 9E-1] A")
-PRESSURE_CH1_CMD = Command(win=812, writable=False, datatype=DataType.NUMERIC,
-                           description="Pressure CH1 [X.XE-XX]")
-LABEL_CMD = Command(win=890, writable=True, datatype=DataType.ALPHANUMERIC, description="Label Max 10 char")
+MODE_CMD = Command(win=8, writable=True, datatype=DataType.NUMERIC, description="Mode")
+HV_ONOFF_CH1_CMD = Command(
+    win=11, writable=True, datatype=DataType.LOGIC, description="HV ON/OFF CH1"
+)
+CONTROLLER_MODEL_CMD = Command(
+    win=319,
+    writable=False,
+    datatype=DataType.ALPHANUMERIC,
+    description="Controller Model",
+)
+CONTROLLER_SERIAL_NO_CMD = Command(
+    win=323,
+    writable=False,
+    datatype=DataType.ALPHANUMERIC,
+    description="Controller Serial number",
+)
+UNIT_PRESSURE_CMD = Command(
+    win=600,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="Unit pressure 0 = Torr 1=mBar (def) 2=Pa",
+)
+AUTO_START_CMD = Command(
+    win=601,
+    writable=True,
+    datatype=DataType.LOGIC,
+    description="Autostart 0 = Disabled, 1 = Enabled",
+)
+PROTECT_CMD = Command(
+    win=602,
+    writable=True,
+    datatype=DataType.LOGIC,
+    description="Protect 0 = Disabled, 1 = Enabled",
+)
+STEP_CMD = Command(
+    win=603,
+    writable=True,
+    datatype=DataType.LOGIC,
+    description="Fixed/Step 0 = Disabled, 1 = Enabled",
+)
+DEVICE_NUM_CH1_CMD = Command(
+    win=610, writable=True, datatype=DataType.NUMERIC, description="Device Number CH1"
+)
+MAX_POWER_CMD = Command(
+    win=612, writable=True, datatype=DataType.NUMERIC, description="Max Power 10W – 40W"
+)
+V_TARGET_CH1_CMD = Command(
+    win=613,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="V target CH1 [3000,7000] V def=7000",
+)
+I_PROTECT_CH1_CMD = Command(
+    win=614,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="I protect CH1 [1,10000 uA] step 1 uA",
+)
+SET_POINT_CH1_CMD = Command(
+    win=615,
+    writable=True,
+    datatype=DataType.NUMERIC,
+    description="Set Point CH1 [X.XE-XX]",
+)
+TEMPERATURE_POWER_CMD = Command(
+    win=800,
+    writable=False,
+    datatype=DataType.NUMERIC,
+    description="Temperature Power section [0, 200] °C",
+)
+TEMPERATURE_CONTROLLER_CMD = Command(
+    win=801,
+    writable=False,
+    datatype=DataType.NUMERIC,
+    description="Temperature internal controller [0, 200] °C",
+)
+STATUS_SET_POINT = Command(
+    win=804,
+    writable=False,
+    datatype=DataType.LOGIC,
+    description="804 R L Status Set point 0 = OFF 1 = ON",
+)
+V_MEASURED_CH1_CMD = Command(
+    win=810,
+    writable=False,
+    datatype=DataType.NUMERIC,
+    description="V measured CH1 [0, 7000] V: step 100V",
+)
+I_MEASURED_CH1_CMD = Command(
+    win=811,
+    writable=False,
+    datatype=DataType.NUMERIC,
+    description="I measured CH1 [1E-10, 9E-1] A",
+)
+PRESSURE_CH1_CMD = Command(
+    win=812,
+    writable=False,
+    datatype=DataType.NUMERIC,
+    description="Pressure CH1 [X.XE-XX]",
+)
+LABEL_CMD = Command(
+    win=890,
+    writable=True,
+    datatype=DataType.ALPHANUMERIC,
+    description="Label Max 10 char",
+)
 
 
 class PumpStatus(IntEnum):
@@ -55,6 +126,7 @@ class PumpStatus(IntEnum):
     Ion Pump controller status codes
     REMARK: the Agilent documentation is not correct. 0 is STOP not OK
     """
+
     STOP = 0
     NORMAL = 5
     FAIL = 6
@@ -64,6 +136,7 @@ class PumpErrorCode(IntFlag):
     """
     Ion pump controller error codes
     """
+
     NO_ERROR = 0x00
     OVER_TEMPERATURE = 0x04
     INTERLOCK_CABLE = 0x20
@@ -76,9 +149,10 @@ class IpcMiniDriver(AgilentDriver):
     Driver for the Agilent IPC Mini Ion Pump controller
     https://www.agilent.com/en/product/vacuum-technologies/ion-pumps-controllers/ion-pump-controllers/ipcmini-ion-pump-controller
     """
+
     PRESSURE_UNITS = [PressureUnit.Torr, PressureUnit.mBar, PressureUnit.Pa]
 
-    def __init__(self, client: Union[LanClient, SerialClient, None], addr: int = 0, **kwargs):
+    def __init__(self, client: SerialClient, addr: int = 0, **kwargs):
         """
         Initialize pump driver
         :param com_port: RS232 or RS485 device string
@@ -105,8 +179,8 @@ class IpcMiniDriver(AgilentDriver):
                 if max_retries > 0:
                     retries += 1
                     if retries > max_retries:
-                        logger.error(f"Failed to connect to IPC Mini")
-                        raise ComError(f"Failed to connect to IPC Mini")
+                        logger.error("Failed to connect to IPC Mini")
+                        raise ComError("Failed to connect to IPC Mini")
 
                 await asyncio.sleep(0.5)
 
@@ -117,7 +191,9 @@ class IpcMiniDriver(AgilentDriver):
         serial_no = response.data
         response = await self.send_request(LABEL_CMD)
         label = response.data
-        logger.info(f"Connected to IpcMini controller model:{model} serial_no:{serial_no} label:{label}")
+        logger.info(
+            f"Connected to IpcMini controller model:{model} serial_no:{serial_no} label:{label}"
+        )
 
         response = await self.send_request(MODE_CMD)
         if int(response) == 1:
@@ -195,7 +271,7 @@ class IpcMiniDriver(AgilentDriver):
         :param current: [0.001 - 10] mA
         :return: None
         """
-        data = int(current*1000)
+        data = int(current * 1000)
         await self.send_request(I_PROTECT_CH1_CMD, write=True, data=data)
 
     async def set_autostart(self, enabled: bool = False) -> None:
