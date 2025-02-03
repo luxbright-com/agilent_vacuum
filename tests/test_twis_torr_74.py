@@ -1,7 +1,6 @@
-import asyncio
-import logging
 import pytest
-from vacuum_interfaces.agilent.twis_torr_74 import *
+import logging
+from agilent_vacuum import *
 
 COM_PORT = '/dev/ttyS0'
 ADDR = 1

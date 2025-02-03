@@ -4,7 +4,7 @@ import random
 import time
 
 import pytest
-from vacuum_interfaces.agilent.ipc_mini import *
+from agilent_vacuum.ipc_mini import *
 
 logger = logging.getLogger("vacuum")
 
