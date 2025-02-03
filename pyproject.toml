@@ -6,19 +6,24 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "vacuum_interfaces"
-version = "0.0.3"
+name = "agilent_vacuum"
+version = "0.1.0"
 authors = [
   { name="Ulrik Södergreb", email="ulrik.sodergren@luxbright.com" },
 ]
 description = "A collection of classes for commuincation with various Agilent Vacuum pump controllers and sensors."
 readme = "README.md"
 license = { file="LICENSE" }
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Development Status :: 4 - Beta",
 ]
 dependencies = [
     "aiofiles >= 24.1",
@@ -37,3 +42,10 @@ test = [
 [project.urls]
 "Homepage" = "https://github.com/luxbright-com/vacuum_interfaces"
 "Bug Tracker" = "https://github.com/luxbright-com/vacuum_interfaces/issues"
+
+[tool.pytest.ini_options]
+log_format = "%(asctime)s %(levelname)s %(message)s"
+log_date_format = "%Y-%m-%d %H:%M:%S"
+log_level = "DEBUG"
+log_cli=true
+asyncio_mode = "auto"
