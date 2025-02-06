@@ -11,7 +11,7 @@ version = "0.1.0"
 authors = [
   { name="Ulrik Södergreb", email="ulrik.sodergren@luxbright.com" },
 ]
-description = "A collection of classes for commuincation with various Agilent Vacuum pump controllers and sensors."
+description = "A package for commuincation with various Agilent Vacuum pump controllers and sensors."
 readme = "README.md"
 license = { file="LICENSE" }
 requires-python = ">=3.9"
