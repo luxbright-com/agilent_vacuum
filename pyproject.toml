@@ -44,8 +44,8 @@ dev = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/luxbright-com/vacuum_interfaces"
-"Bug Tracker" = "https://github.com/luxbright-com/vacuum_interfaces/issues"
+"Homepage" = "https://github.com/luxbright-com/agilent_vacuum"
+"Bug Tracker" = "https://github.com/luxbright-com/agilent_vacuum/issues"
 
 [tool.pytest.ini_options]
 log_format = "%(asctime)s %(levelname)s %(message)s"
