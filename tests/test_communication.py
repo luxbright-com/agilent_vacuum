@@ -1,8 +1,8 @@
 import logging
 import pytest
-from vacuum_interfaces.agilent import calc_checksum, validate_checksum
-from vacuum_interfaces.agilent import Command, DataType, ResultCode, AgilentDriver
-from vacuum_interfaces.agilent.exceptions import *
+from agilent_vacuum import calc_checksum, validate_checksum
+from agilent_vacuum import Command, DataType, ResultCode, AgilentDriver
+from agilent_vacuum.exceptions import *
 
 logger = logging.getLogger("test")
 

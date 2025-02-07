@@ -5,15 +5,18 @@ from enum import Enum, IntEnum
 from dataclasses import dataclass
 import logging
 import serial
-import time
-from telnetlib import Telnet
-from tenacity import *
-from threading import Thread
 from typing import Optional, Union
 
-from .exceptions import *
+from .exceptions import (
+    DataTypeError,
+    OutOfRange,
+    WinDisabled,
+    ComError,
+    NACK,
+    UnknownWindow,
+)
 
-logger = logging.getLogger('vacuum')
+logger = logging.getLogger("vacuum")
 
 
 class PressureUnit(Enum):
@@ -21,6 +24,7 @@ class PressureUnit(Enum):
     Pressure Unit
     REMARK: the numerical encoding is NOT consistent among Agilent devices. Don't use this to decode request/response
     """
+
     unknown = 1000
     mBar = 1001
     Pa = 1002
@@ -31,6 +35,7 @@ class ResultCode(IntEnum):
     """
     Result codes used in response messages
     """
+
     ACK = 0x06
     NACK = 0x15
     UNKNOWN_WINDOW = 0x32
@@ -44,6 +49,7 @@ class Response:
     """
     Parsed response from controller
     """
+
     addr: int
     data: Optional[bytes] = None
     result_code: Optional[ResultCode] = None
@@ -73,6 +79,7 @@ class DataType(Enum):
     """
     Agilent Window Protocol Datatypes
     """
+
     LOGIC = 1
     NUMERIC = 2
     ALPHANUMERIC = 3
@@ -83,6 +90,7 @@ class Command:
     """
     Agilent Window Protocol Command
     """
+
     win: int
     writable: bool
     datatype: DataType
@@ -91,12 +99,12 @@ class Command:
     @staticmethod
     def bool_str(data: Union[bool, int]) -> str:
         if isinstance(data, bool):
-            return '1' if data is True else '0'
+            return "1" if data is True else "0"
         elif isinstance(data, int):
             if data == 0:
-                return '0'
+                return "0"
             elif data == 1:
-                return '1'
+                return "1"
             else:
                 raise OutOfRange("data value must be bool, 0 or 1")
         else:
@@ -119,7 +127,12 @@ class Command:
             case _:
                 raise DataTypeError("data must be int, float or str type")
 
-    def encode(self, data: Union[bool, int, str, float] = None, addr: int = 0, write: bool = False) -> bytearray:
+    def encode(
+        self,
+        data: Union[bool, int, str, float] = None,
+        addr: int = 0,
+        write: bool = False,
+    ) -> bytearray:
         """
         Encode message string including STX, ETX and checksum
         :param data: optional data to send
@@ -151,8 +164,8 @@ class Command:
             message = f"\x02{addr_val}{self.win:03}0\x03"
 
         # we must encode as 8 bit ascii to support the address parameter
-        out_buff = bytearray(message.encode('iso-8859-1'))
-        checksum = f"{calc_checksum(out_buff):x}".upper().encode('iso-8859-1')
+        out_buff = bytearray(message.encode("iso-8859-1"))
+        checksum = f"{calc_checksum(out_buff):x}".upper().encode("iso-8859-1")
         # logger.debug(f"message {out_buff} checksum {checksum}")
         out_buff.extend(checksum)
         return out_buff
@@ -172,18 +185,20 @@ class SerialClient:
         """
         self.port = com_port
         try:
-            self.serial = aioserial.AioSerial(port=com_port, baudrate=baudrate,
-                                              stopbits=serial.STOPBITS_ONE,
-                                              timeout=timeout,
-                                              write_timeout=timeout)
+            self.serial = aioserial.AioSerial(
+                port=com_port,
+                baudrate=baudrate,
+                stopbits=serial.STOPBITS_ONE,
+                timeout=timeout,
+                write_timeout=timeout,
+            )
         except serial.SerialException as e:
             logger.error(f"Could not open serial port {e}")
             raise ComError(f"Could not open serial port {e}")
         self.lock = asyncio.Lock()  # restrict to one reply request at a time
         logger.info(f"Serial port {com_port}")
 
-    def open(self):
-        ...
+    def open(self): ...
 
     async def send(self, out_buff: bytes) -> bytes:
         """
@@ -195,7 +210,7 @@ class SerialClient:
             try:
                 self.serial.reset_input_buffer()
                 await self.serial.write_async(out_buff)
-                in_buff = await self.serial.read_until_async(expected=b'/x03')
+                in_buff = await self.serial.read_until_async(expected=b"/x03")
                 return in_buff
             except serial.serialutil.SerialException as e:
                 raise ComError(f"Serial exception in send. {e}")
@@ -212,102 +227,12 @@ class SerialClient:
         self.close()
 
 
-class LanClient:
-    """
-    Lan client for communication with pump controllers.
-    Uses blocking telnet as socket.
-    """
-
-    def __init__(self, host: str, port: int = 23,
-                 timeout: float = 0.5, rate_limit: int = 10):
-        self.host = host
-        self.port = port
-        self.timeout = timeout
-        self.lock = asyncio.Lock()  # restrict to one reply request at a time
-        self.telnet = Telnet()
-        self.min_wait = 1.0 / rate_limit
-        self.last_send = time.time()
-        self.is_connected = False
-        self.reconnect_thread = Thread(target=self.reconnect, daemon=True)
-
-    def reconnect(self):
-        while self.is_connected is False:
-            time.sleep(1.0)
-            logger.info("reconnecting")
-            self.open()
-
-    def open(self):
-        self.telnet.open(host=self.host, port=self.port, timeout=self.timeout)
-        self.is_connected = True
-
-    @retry(stop=stop_after_attempt(3), wait=wait_fixed(0.2))
-    def _blocking_send(self, out_buff: bytes) -> bytes:
-        # Purge input buffer
-        try:
-            self.telnet.read_eager()
-        except EOFError:
-            pass
-
-        try:
-            self.telnet.write(out_buff)
-            reply = self.telnet.read_until(b"\x03", timeout=self.timeout)
-            checksum = self.telnet.read_eager()
-
-            if reply is None or checksum is None:
-                raise EOFError("None type response")
-
-            if len(reply) < 2 or len(checksum) < 2:
-                raise EOFError("To short response")
-
-            return reply + checksum
-
-        except BrokenPipeError as e:
-            logger.warning(f"Telnet error {e}")
-            self.is_connected = False
-            self.close()
-            time.sleep(0.1)
-            self.open()
-            logger.warning(f"Telnet tried to reconnect")
-
-    async def send(self, out_buff: bytes) -> bytes:
-        """
-        Send request and wait for reply using telnet.
-        Uses asyncio run_in_executor for blocking telnet commands
-        :param out_buff: 8 bit ascii encoded message string including STX, ETC and checksum
-        :return: response message. 8-bit ascii encoding including STX, ETX and checksum
-        """
-        if self.is_connected is False:
-            raise ComError("Client disconnected")
-
-        async with self.lock:
-            # rate limit
-            wait_time = self.min_wait - (time.time() - self.last_send)
-            if wait_time > 0.0:
-                await asyncio.sleep(wait_time)
-            # loop = asyncio.get_running_loop()
-            # in_buff = await loop.run_in_executor(None, self._blocking_send, out_buff)
-            in_buff = self._blocking_send(out_buff)
-            self.last_send = time.time()
-
-        return in_buff
-
-    def close(self) -> None:
-        """
-        Close Client
-        :return: None
-        """
-        self.telnet.close()
-
-    def __del__(self):
-        self.close()
-
-
 class AgilentDriver:
     """
     Base class for Agilent drivers
     """
 
-    def __init__(self, client: Union[LanClient, SerialClient, None], addr: int = 0, **kwargs):
+    def __init__(self, client: SerialClient | None, addr: int = 0, **kwargs):
         """
         Initialize driver
         :param addr: controller device address for RS485 communication (default 0)
@@ -362,7 +287,7 @@ class AgilentDriver:
         """
         if buff is None or len(buff) < 3:
             raise EOFError("Buff is empty")
-        end_pos = buff.find(b'\x03')
+        end_pos = buff.find(b"\x03")
         if end_pos == -1:
             raise EOFError("Missing ETX, response message is not complete.")
         message = buff[0:end_pos]
@@ -370,7 +295,9 @@ class AgilentDriver:
 
         if len(message) == 3:
             # ACK / NACK / ERROR
-            response = Response(addr=addr, write=True, result_code=ResultCode(message[2]))
+            response = Response(
+                addr=addr, write=True, result_code=ResultCode(message[2])
+            )
             # test response codes and raise corresponding exceptions
             if response.result_code is ResultCode.NACK:
                 raise NACK
@@ -386,7 +313,9 @@ class AgilentDriver:
         else:
             # arbitrary length data
             write = True if message[5] == 1 else False
-            response = Response(addr=addr, win=int(message[2:5]), write=write, data=message[6:])
+            response = Response(
+                addr=addr, win=int(message[2:5]), write=write, data=message[6:]
+            )
         return response
 
     @abstractmethod
@@ -406,8 +335,13 @@ class AgilentDriver:
         """
         pass
 
-    async def send_request(self, command: Command, data: Union[bool, int, str] = None, write: bool = False,
-                           force: bool = False) -> Response:
+    async def send_request(
+        self,
+        command: Command,
+        data: Union[bool, int, str] = None,
+        write: bool = False,
+        force: bool = False,
+    ) -> Response:
         """
         Send request to the controller and return a parsed response instance.
         :param command: Command instance
@@ -419,7 +353,9 @@ class AgilentDriver:
         """
         if self.is_connected or force:
             try:
-                in_buff = await self.client.send(command.encode(data=data, addr=self.addr, write=write))
+                in_buff = await self.client.send(
+                    command.encode(data=data, addr=self.addr, write=write)
+                )
                 # logger.debug(f"response_str {in_buff}")
                 return self.parse_response(in_buff)
             except EOFError as e:
