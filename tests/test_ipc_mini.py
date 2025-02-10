@@ -5,7 +5,6 @@ import time
 
 import pytest
 import agilent_vacuum.ipc_mini as ipc
-import agilent_vacuum.commands as ac
 
 logger = logging.getLogger("vacuum")
 
@@ -46,12 +45,12 @@ async def test_ipc_mini_basic_commands():
     logger.info(f"serial no {response.data}")
     assert len(response.data) > 4
 
-    response = await ipc_mini.send_request(ac.SERIAL_ADDR_CMD)
+    response = await ipc_mini.send_request(ipc.SERIAL_ADDR_CMD)
     addr = int(response.data)
     assert addr >= 0
     assert addr <= 32
 
-    response = await ipc_mini.send_request(ac.SERIAL_TYPE_CMD)
+    response = await ipc_mini.send_request(ipc.SERIAL_TYPE_CMD)
     logger.info(f"Serial type {int(response)}")
     response = await ipc_mini.send_request(ipc.MODE_CMD)
     logger.info(f"Control mode {int(response)}")

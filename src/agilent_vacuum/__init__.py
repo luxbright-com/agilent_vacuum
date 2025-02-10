@@ -6,11 +6,5 @@ from .communication import SerialClient as SerialClient
 from .communication import AgilentDriver as AgilentDriver
 from .communication import calc_checksum as calc_checksum
 from .communication import validate_checksum as validate_checksum
-from .commands import BAUD_RATE_CMD as BAUD_RATE_CMD
-from .commands import STATUS_CMD as STATUS_CMD
-from .commands import ERROR_CODE_CMD as ERROR_CODE_CMD
-from .commands import ADDR_CMD as ADDR_CMD
-from .commands import SERIAL_ADDR_CMD as SERIAL_ADDR_CMD
-from .commands import SERIAL_TYPE_CMD as SERIAL_TYPE_CMD
 from .ipc_mini import IpcMiniDriver as IpcMiniDriver
 from .twis_torr_74 import TwisTorr74Driver as TwisTorr74Driver
