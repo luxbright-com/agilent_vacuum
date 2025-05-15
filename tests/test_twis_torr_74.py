@@ -340,6 +340,27 @@ async def test_fan_off(pump):
     assert await pump.get_fan() is False
     await pump.set_fan_config(1)  # AUTO
 
+@pytest.mark.asyncio
+async def test_vent_valve(pump):
+    """
+    Test manual operation of Vent Valve
+    :param pump:
+    :return:
+    """
+    await pump.set_vent_operation(False)
+    assert await pump.get_vent_operation() is False
+    await pump.set_vent_operation(True)
+    assert await pump.get_vent_operation() is True
+
+    await pump.set_vent_open(False)
+    assert await pump.get_vent_open() is False
+    await pump.set_vent_open(True)
+    assert await pump.get_vent_open() is True
+
+    # restore to default
+    await pump.set_vent_open(False)
+    await pump.set_vent_operation(True)
+
 
 @pytest.mark.asyncio
 async def test_get_R1_config(pump):
