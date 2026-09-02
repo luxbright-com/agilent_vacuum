@@ -3,13 +3,12 @@ Interface to Agilent TwisTorr 74 FS controller
 """
 
 import asyncio
-from enum import IntEnum, IntFlag
 import logging
+from enum import IntEnum, IntFlag
 from typing import NamedTuple
 
-from .communication import SerialClient, AgilentDriver, PressureUnit
-from .communication import Command, DataType
-from .exceptions import UnknownWindow, ComError, WinDisabled
+from .communication import AgilentDriver, Command, DataType, PressureUnit, SerialClient
+from .exceptions import ComError, UnknownWindow, WinDisabled
 
 logger = logging.getLogger(__name__)
 
@@ -326,6 +325,8 @@ GAUGE_POWER_CMD = Command(
     win=267, writable=True, datatype=DataType.NUMERIC, description="Gauge power"
 )
 
+PRESSURE_UNITS = [PressureUnit.mBar, PressureUnit.Pa, PressureUnit.Torr]
+
 
 class GaugeStatus(IntEnum):
     NOT_CONNECTED = 0
@@ -385,8 +386,6 @@ class TwisTorr74Driver(AgilentDriver):
     """
     Driver for the Agilent TwisTorr 74 FS Turbomolecular pump rack controller
     """
-
-    PRESSURE_UNITS = [PressureUnit.mBar, PressureUnit.Pa, PressureUnit.Torr]
 
     def __init__(self, client: SerialClient, addr: int = 0, **kwargs):
         super().__init__(client, addr=addr, **kwargs)
@@ -526,7 +525,7 @@ class TwisTorr74Driver(AgilentDriver):
         """
         response = await self.send_request(PRESSURE_UNIT_CMD)
         logger.debug(f"Pressure unit data {response.data}")
-        return self.PRESSURE_UNITS[int(response.data)]
+        return PRESSURE_UNITS[int(response.data)]
 
     async def set_pressure_unit(self, unit: PressureUnit) -> None:
         """
@@ -535,7 +534,7 @@ class TwisTorr74Driver(AgilentDriver):
         :return: unit as PressureUnit enum
         """
         response = await self.send_request(
-            PRESSURE_UNIT_CMD, write=True, data=self.PRESSURE_UNITS.index(unit)
+            PRESSURE_UNIT_CMD, write=True, data=PRESSURE_UNITS.index(unit)
         )
         logger.debug(f"Pressure unit data {response.data}")
 
@@ -723,7 +722,7 @@ class TwisTorr74Driver(AgilentDriver):
         setpoint_num: int,
         setpoint_tuple: SetpointTuple | None = None,
         point_type: SetpointType | None = None,
-        value: int | float | None = None,
+        value: float | None = None,
         delay: int | None = None,
         active_high: bool | None = None,
         hysteresis: int | None = None,

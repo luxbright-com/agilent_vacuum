@@ -3,11 +3,10 @@ Interface to Agilent IPCMini Ion Pump Controller
 """
 
 import asyncio
-from enum import IntEnum, IntFlag
 import logging
+from enum import IntEnum, IntFlag
 
-from .communication import SerialClient, AgilentDriver, PressureUnit
-from .communication import Command, DataType
+from .communication import AgilentDriver, Command, DataType, PressureUnit, SerialClient
 from .exceptions import ComError, WinDisabled
 
 logger = logging.getLogger("vacuum")
@@ -148,6 +147,8 @@ LABEL_CMD = Command(
     description="Label Max 10 char",
 )
 
+PRESSURE_UNITS = [PressureUnit.Torr, PressureUnit.mBar, PressureUnit.Pa]
+
 
 class PumpStatus(IntEnum):
     """
@@ -177,8 +178,6 @@ class IpcMiniDriver(AgilentDriver):
     Driver for the Agilent IPC Mini Ion Pump controller
     https://www.agilent.com/en/product/vacuum-technologies/ion-pumps-controllers/ion-pump-controllers/ipcmini-ion-pump-controller
     """
-
-    PRESSURE_UNITS = [PressureUnit.Torr, PressureUnit.mBar, PressureUnit.Pa]
 
     def __init__(self, client: SerialClient, addr: int = 0, **kwargs):
         """
@@ -337,7 +336,7 @@ class IpcMiniDriver(AgilentDriver):
         :raises WinDisabled if the window specified is Read Only or is temporarily disabled.
         """
         response = await self.send_request(UNIT_PRESSURE_CMD)
-        return self.PRESSURE_UNITS[int(response)]
+        return PRESSURE_UNITS[int(response)]
 
     async def set_pressure_unit(self, unit: PressureUnit) -> None:
         """
@@ -350,7 +349,7 @@ class IpcMiniDriver(AgilentDriver):
         :raises OutOfRange if the value expressed during a write command is not within the range value for the window.
         :raises WinDisabled if the window specified is Read Only or is temporarily disabled.
         """
-        data = self.PRESSURE_UNITS.index(unit)
+        data = PRESSURE_UNITS.index(unit)
         await self.send_request(UNIT_PRESSURE_CMD, write=True, data=data)
 
     async def get_protect(self) -> bool:

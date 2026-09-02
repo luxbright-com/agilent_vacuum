@@ -1,16 +1,18 @@
 import asyncio
-import pytest
 import logging
+
+import pytest
+
 import agilent_vacuum as agilent
 import agilent_vacuum.twis_torr_74 as tw
 
-COM_PORT = '/dev/ttyS0'
+COM_PORT = "/dev/ttyS0"
 ADDR = 1
 
-logger = logging.getLogger('vacuum')
+logger = logging.getLogger("vacuum")
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 async def pump():
     client = agilent.SerialClient(com_port=COM_PORT)
     ctrl = agilent.TwisTorr74Driver(client, addr=ADDR)
@@ -339,6 +341,7 @@ async def test_fan_off(pump):
     await pump.set_fan(False)
     assert await pump.get_fan() is False
     await pump.set_fan_config(1)  # AUTO
+
 
 @pytest.mark.asyncio
 async def test_vent_valve(pump):

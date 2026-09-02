@@ -4,11 +4,12 @@ import random
 import time
 
 import pytest
+
 import agilent_vacuum.ipc_mini as ipc
 
 logger = logging.getLogger("vacuum")
 
-COM_PORT = '/dev/ttyUSB0'
+COM_PORT = "/dev/ttyUSB0"
 ADDR = 2
 
 
@@ -192,7 +193,7 @@ async def test_ipc_mini_set_current_protect():
     client = ipc.SerialClient(com_port=COM_PORT)
     ipc_mini = ipc.IpcMiniDriver(client, addr=ADDR)
     await ipc_mini.connect()
-    current_backup = await ipc_mini.get_current_protect()
+    _current_backup = await ipc_mini.get_current_protect()
     setting = random.randrange(1, 100) / 10.0
     await ipc_mini.set_current_protect(setting)
     assert await ipc_mini.get_current_protect() == pytest.approx(setting)
@@ -248,7 +249,7 @@ async def test_rate_limit():
 
 
 @pytest.mark.asyncio
-async def test_rate_limit():
+async def test_connect():
     client = ipc.SerialClient(com_port=COM_PORT)
     ipc_mini = ipc.IpcMiniDriver(client, addr=ADDR)
     await ipc_mini.connect(max_retries=0)
@@ -259,8 +260,7 @@ async def test_long_run():
     client = ipc.SerialClient(com_port=COM_PORT)
     ipc_mini = ipc.IpcMiniDriver(client, addr=ADDR)
     await ipc_mini.connect()
-    start = time.time()
-    while ipc_mini.is_connected is True:
+    while ipc_mini.is_connected:
         pressure = await ipc_mini.read_pressure()
         voltage = await ipc_mini.read_voltage()
         logger.info(f"pressure {pressure} voltage {voltage} time {time.time()}")

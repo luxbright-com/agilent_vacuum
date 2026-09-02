@@ -1,19 +1,19 @@
-from abc import abstractmethod
 import asyncio
-import aioserial
-from enum import Enum, IntEnum
-from dataclasses import dataclass
 import logging
+from abc import abstractmethod
+from dataclasses import dataclass
+from enum import Enum, IntEnum
+
+import aioserial
 import serial
-from typing import Optional, Union
 
 from .exceptions import (
+    NACK,
+    ComError,
     DataTypeError,
     OutOfRange,
-    WinDisabled,
-    ComError,
-    NACK,
     UnknownWindow,
+    WinDisabled,
 )
 
 logger = logging.getLogger("vacuum")
@@ -51,10 +51,10 @@ class Response:
     """
 
     addr: int
-    data: Optional[bytes] = None
-    result_code: Optional[ResultCode] = None
+    data: bytes | None = None
+    result_code: ResultCode | None = None
     write: bool = False
-    win: Optional[int] = None
+    win: int | None = None
 
     def __float__(self):
         return float(self.data)
@@ -97,7 +97,7 @@ class Command:
     description: str
 
     @staticmethod
-    def bool_str(data: Union[bool, int]) -> str:
+    def bool_str(data: bool | int) -> str:
         if isinstance(data, bool):
             return "1" if data is True else "0"
         elif isinstance(data, int):
@@ -111,7 +111,7 @@ class Command:
             raise DataTypeError("data must be bool or int type")
 
     @staticmethod
-    def num_str(data: int | str | float) -> str:
+    def num_str(data: str | float) -> str:
         """
         Encode numeric data as string
         :param data: data value to encode
@@ -129,7 +129,7 @@ class Command:
 
     def encode(
         self,
-        data: Union[bool, int, str, float] = None,
+        data: bool | str | float | None = None,
         addr: int = 0,
         write: bool = False,
     ) -> bytearray:
@@ -249,7 +249,6 @@ class AgilentDriver:
         Must call self.on_connect callbacks to notify instance users
         :return:
         """
-        ...
 
     @property
     def on_connect(self) -> list:
@@ -312,7 +311,7 @@ class AgilentDriver:
 
         else:
             # arbitrary length data
-            write = True if message[5] == 1 else False
+            write = message[5] == 1
             response = Response(
                 addr=addr, win=int(message[2:5]), write=write, data=message[6:]
             )
@@ -333,12 +332,11 @@ class AgilentDriver:
         Must be implemented in concrete subclasses.
         :return: PressureUnit enum
         """
-        pass
 
     async def send_request(
         self,
         command: Command,
-        data: Union[bool, int, str] = None,
+        data: bool | int | str | None = None,
         write: bool = False,
         force: bool = False,
     ) -> Response:
