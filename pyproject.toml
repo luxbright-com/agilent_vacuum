@@ -14,7 +14,7 @@ authors = [
 description = "A package for commuincation with various Agilent Vacuum pump controllers and sensors."
 readme = "README.md"
 license = { file="LICENSE" }
-requires-python = ">=3.9"
+requires-python = ">=3.13"
 classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -39,6 +39,7 @@ test = [
     "pytest-timeout > 2.3"
 ]
 dev = [
+    "pre-commit",
     "ruff",
     "twine"
 ]
