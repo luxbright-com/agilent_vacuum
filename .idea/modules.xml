@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/VacuumInterfaces.iml" filepath="$PROJECT_DIR$/.idea/VacuumInterfaces.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/agilent_vacuum.iml" filepath="$PROJECT_DIR$/.idea/agilent_vacuum.iml" />
     </modules>
   </component>
 </project>

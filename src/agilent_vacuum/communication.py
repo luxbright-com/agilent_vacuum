@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import typing
 from abc import abstractmethod
 from dataclasses import dataclass
 from enum import Enum, IntEnum
@@ -240,8 +241,8 @@ class AgilentDriver:
         self.client = client
         self.addr = addr
         self.is_connected: bool = False
-        self._on_connect: list[callable] = []
-        self._on_disconnect: list[callable] = []
+        self._on_connect: list[typing.Callable] = []
+        self._on_disconnect: list[typing.Callable] = []
 
     async def connect(self, max_retries: int = 1) -> None:
         """
