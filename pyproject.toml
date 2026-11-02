@@ -30,12 +30,16 @@ dev = [
     "ruff",
     "twine",
     "build>=1.6.1",
+    "pip-audit>=2.10.0",
 ]
 test = [
     "pytest > 8.3",
     "pytest-asyncio > 0.24",
     "pytest-timeout > 2.3"
 ]
+[tool.uv]
+exclude-newer = "14 days"
+
 [project.urls]
 "Homepage" = "https://github.com/luxbright-com/agilent_vacuum"
 "Bug Tracker" = "https://github.com/luxbright-com/agilent_vacuum/issues"
